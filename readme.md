@@ -1,5 +1,4 @@
 ## Setup the frontend of this project from
-https://github.com/shivam-bhadani/cf-stress-frontend
 
 # Website Overview
 ### 1. Enter ContestID and Problem Index
