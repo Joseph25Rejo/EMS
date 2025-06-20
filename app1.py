@@ -88,9 +88,17 @@ class StudentSection:
         print("-" * 80)
         for _, course in courses_df.iterrows():
             instructor = course['instructor']
+            if isinstance(instructor, pd.Series):
+                instructor = instructor.iloc[0]
+            elif isinstance(instructor, (list, tuple, set)):
+                instructor = list(instructor)[0]
             if pd.isna(instructor) or instructor == "":
                 instructor = "TBA"
             expected = course['expected_students']
+            if isinstance(expected, pd.Series):
+                expected = expected.iloc[0]
+            elif isinstance(expected, (list, tuple, set)):
+                expected = list(expected)[0]
             if pd.isna(expected) or expected == "":
                 expected = "TBA"
             print(f"{course['course_code']:<10} {course['course_name']:<30} {instructor:<20} {expected:<15}")
@@ -177,7 +185,13 @@ class StudentSection:
             course_info = courses_df[courses_df['course_code'] == enrollment['course_code']]
             if not course_info.empty:
                 course = course_info.iloc[0]
-                instructor = course['instructor'] if not pd.isna(course['instructor']) else "TBA"
+                instructor = course['instructor']
+                if isinstance(instructor, pd.Series):
+                    instructor = instructor.iloc[0]
+                elif isinstance(instructor, (list, tuple, set)):
+                    instructor = list(instructor)[0]
+                if pd.isna(instructor) or instructor == "":
+                    instructor = "TBA"
                 print(f"{enrollment['course_code']:<12} {course['course_name']:<30} {instructor:<20}")
             else:
                 print(f"{enrollment['course_code']:<12} {'Course not found':<30} {'N/A':<20}")
@@ -252,6 +266,10 @@ class AdminSection:
         print("-" * 70)
         for _, course in courses_df.iterrows():
             expected = course['expected_students']
+            if isinstance(expected, pd.Series):
+                expected = expected.iloc[0]
+            elif isinstance(expected, (list, tuple, set)):
+                expected = list(expected)[0]
             if pd.isna(expected) or expected == "":
                 expected = "TBA"
             print(f"{course['course_code']:<10} {course['course_name']:<35} {expected:<15}")

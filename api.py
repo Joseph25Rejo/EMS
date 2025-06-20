@@ -42,19 +42,19 @@ try:
     print("✅ Successfully connected to MongoDB Atlas!")
     
     # Initialize database and collections
-    db = client['exam_scheduling']
+    db = client['exam-scheduling']
     collections = {
         'courses': db['courses'],
         'students': db['students'],
         'rooms': db['rooms'],
-        'schedules': db['schedules']
+        'final_schedule': db['final_schedule']
     }
     
     # Create indexes for better performance
     collections['courses'].create_index('course_code', unique=True)
     collections['students'].create_index([('student_id', 1), ('course_code', 1)], unique=True)
     collections['rooms'].create_index('room_id', unique=True)
-    collections['schedules'].create_index('created_at')
+    collections['final_schedule'].create_index('created_at')
     
 except (ConnectionFailure, ServerSelectionTimeoutError) as e:
     print(f"❌ Failed to connect to MongoDB Atlas: {e}")
@@ -82,6 +82,18 @@ def convert_to_json_serializable(obj):
     if isinstance(obj, datetime):
         return obj.isoformat()
     return obj
+
+def make_json_serializable(obj):
+    if isinstance(obj, dict):
+        return {k: make_json_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [make_json_serializable(v) for v in obj]
+    elif isinstance(obj, ObjectId):
+        return str(obj)
+    elif isinstance(obj, datetime):
+        return obj.isoformat()
+    else:
+        return obj
 
 # Course endpoints
 @app.route('/api/courses', methods=['GET'])
@@ -192,7 +204,7 @@ def create_room():
 @app.route('/api/schedules', methods=['GET'])
 @handle_errors
 def get_schedules():
-    schedules = list(collections['schedules'].find())
+    schedules = list(collections['final_schedule'].find())
     return jsonify([{k: convert_to_json_serializable(v) for k, v in schedule.items()} for schedule in schedules])
 
 @app.route('/api/schedules/generate', methods=['POST'])
@@ -253,7 +265,9 @@ def generate_schedule():
             
     admin = AdminSection(csv_manager=TempCSVManager())
     
-    constraints = data.get('constraints', {})  # or set defaults as needed
+    constraints = data.get('constraints', {})
+    if 'start_date' in constraints and isinstance(constraints['start_date'], str):
+        constraints['start_date'] = datetime.strptime(constraints['start_date'], "%Y-%m-%d").date()
     
     if algorithm == 'graph_coloring':
         schedule = admin._schedule_graph_coloring(courses_df, students_df, rooms_df, constraints)
@@ -265,7 +279,7 @@ def generate_schedule():
         return jsonify({'error': 'Invalid algorithm specified'}), 400
     
     # Save schedule to MongoDB
-    schedule_id = collections['schedules'].insert_one({
+    schedule_id = collections['final_schedule'].insert_one({
         'algorithm': algorithm,
         'schedule': schedule,
         'created_at': datetime.utcnow()
@@ -319,7 +333,7 @@ def get_statistics():
     students_count = len(collections['students'].distinct('student_id'))
     rooms_count = collections['rooms'].count_documents({})
     enrollments_count = collections['students'].count_documents({})
-    schedules_count = collections['schedules'].count_documents({})
+    schedules_count = collections['final_schedule'].count_documents({})
     
     # Get most popular course
     pipeline = [
@@ -339,6 +353,144 @@ def get_statistics():
     }
     
     return jsonify(stats)
+
+@app.route('/api/students/<student_id>/hallticket', methods=['GET'])
+@handle_errors
+def get_student_hallticket(student_id):
+    exams = list(collections['final_schedule'].find())
+    students = list(collections['students'].find({'student_id': student_id}))
+    if students and exams:
+        enrolled_courses = [s['course_code'] for s in students]
+        hallticket = [
+            {
+                'course_code': exam['course_code'],
+                'course_name': exam.get('course_name', ''),
+                'date': exam.get('date', ''),
+                'room': exam.get('room', ''),
+                'session': exam.get('session', '')
+            }
+            for exam in exams if exam['course_code'] in enrolled_courses
+        ]
+        return jsonify(hallticket)
+    # Fallback: Try to load from CSVs using app.py logic
+    try:
+        from app import CSVManager
+        csv_manager = CSVManager()
+        students_df = csv_manager.load_csv('students.csv')
+        schedule_df = csv_manager.load_csv('final_schedule.csv')
+        courses_df = csv_manager.load_csv('courses.csv')
+        my_enrollments = students_df[students_df['student_id'] == student_id]
+        if my_enrollments.empty or schedule_df.empty:
+            return jsonify([])
+        enrolled_courses = list(my_enrollments['course_code'])
+        my_schedule = schedule_df[schedule_df['course_code'].isin(enrolled_courses)]
+        hallticket = []
+        for _, exam in my_schedule.iterrows():
+            course_name = exam['course_name'] if 'course_name' in exam else list(courses_df[courses_df['course_code'] == exam['course_code']]['course_name'])[0]
+            hallticket.append({
+                'course_code': exam['course_code'],
+                'course_name': course_name,
+                'date': exam['date'],
+                'room': exam['room'],
+                'session': exam['session'] if 'session' in exam else ''
+            })
+        return jsonify(hallticket)
+    except Exception as e:
+        return jsonify({'error': f'Not found in DB or CSV: {str(e)}'}), 404
+
+@app.route('/api/teachers/<teacher_name>/invigilations', methods=['GET'])
+@handle_errors
+def get_teacher_invigilations(teacher_name):
+    exams = list(collections['final_schedule'].find())
+    # Case-insensitive match for instructor
+    invigilations = [
+        exam for exam in exams
+        if str(exam.get('instructor', '')).strip().lower() == teacher_name.strip().lower()
+    ]
+    return jsonify(make_json_serializable(invigilations))
+
+@app.route('/api/schedules', methods=['GET'])
+@handle_errors
+def get_exam_schedule():
+    course_code = request.args.get('course_code')
+    room = request.args.get('room')
+    date = request.args.get('date')
+    schedules = list(collections['final_schedule'].find().sort('created_at', -1))
+    if not schedules:
+        return jsonify({'error': 'No exam schedule available'}), 404
+    schedule = schedules[0]['schedule']
+    # Apply filters if present
+    if course_code:
+        schedule = [exam for exam in schedule if exam['course_code'] == course_code]
+    if room:
+        schedule = [exam for exam in schedule if exam['room'] == room]
+    if date:
+        schedule = [exam for exam in schedule if exam['date'] == date]
+    return jsonify(schedule)
+
+@app.route('/api/schedules/<course_code>/benches', methods=['GET'])
+@handle_errors
+def get_bench_assignments(course_code):
+    exams = list(collections['final_schedule'].find({'course_code': course_code}))
+    if not exams:
+        return jsonify({'error': 'Course not found in schedule'}), 404
+    # There should be only one exam per course_code
+    exam = exams[0]
+    benches = exam.get('benches', [])
+    # If benches is not JSON serializable, convert it
+    from bson import ObjectId
+    def make_json_serializable(obj):
+        if isinstance(obj, dict):
+            return {k: make_json_serializable(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [make_json_serializable(v) for v in obj]
+        elif isinstance(obj, ObjectId):
+            return str(obj)
+        else:
+            return obj
+    return jsonify({'benches': make_json_serializable(benches)})
+
+@app.route('/api/login', methods=['POST'])
+@handle_errors
+def login():
+    data = request.json
+    if not data:
+        return jsonify({'error': 'Missing JSON body'}), 400
+    role = data.get('role')
+    usn = data.get('USN') or data.get('UserID')
+    password = data.get('Password')
+    if not role or not usn or not password:
+        return jsonify({'error': 'Missing role, USN/UserID, or password'}), 400
+    # Connect to auth db
+    auth_client = MongoClient(os.getenv('MONGODB_URI'))
+    auth_db = auth_client['auth']
+    if role == 'student':
+        collection = auth_db['studentauth']
+        user = collection.find_one({'USN': usn, 'Password': password})
+        if user:
+            user['student_id'] = user['USN']
+            user.pop('password', None)
+            return jsonify({'message': 'Login successful', 'user': make_json_serializable(user)})
+        else:
+            return jsonify({'error': 'Invalid USN/UserID or password'}), 401
+    elif role == 'teacher':
+        collection = auth_db['teacher_auth']
+        user = collection.find_one({'USN': usn, 'Password': password})
+        if user:
+            user.pop('password', None)
+            return jsonify({'message': 'Login successful', 'user': make_json_serializable(user)})
+        else:
+            return jsonify({'error': 'Invalid USN/UserID or password'}), 401
+    elif role == 'admin':
+        collection = auth_db['adminauth']
+        user = collection.find_one({'UserID': usn, 'Password': password})
+        if user:
+            user.pop('password', None)
+            return jsonify({'message': 'Login successful', 'user': make_json_serializable(user)})
+        else:
+            return jsonify({'error': 'Invalid USN/UserID or password'}), 401
+    else:
+        return jsonify({'error': 'Invalid role'}), 400
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000) 

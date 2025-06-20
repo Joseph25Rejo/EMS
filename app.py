@@ -7,6 +7,7 @@ from collections import defaultdict
 from typing import Dict, List, Set, Optional
 from datetime import datetime, timedelta
 import math
+from pymongo import MongoClient
 try:
     from ortools.sat.python import cp_model
     ORTOOLS_AVAILABLE = True
@@ -102,8 +103,19 @@ class StudentSection:
         print(f"{'Code':<10} {'Course Name':<30} {'Instructor':<20} {'Expected Students':<15}")
         print("-" * 80)
         for _, course in courses_df.iterrows():
-            instructor = course['instructor'] if not pd.isna(course['instructor']) else "TBA"
-            expected = course['expected_students'] if not pd.isna(course['expected_students']) else "TBA"
+            instructor = course['instructor']
+            if isinstance(instructor, pd.Series):
+                instructor = instructor.iloc[0]
+            elif isinstance(instructor, (list, tuple)):
+                instructor = instructor[0]
+            instructor = instructor if pd.notna(instructor) else "TBA"
+            expected = course['expected_students']
+            expected = expected.item() if hasattr(expected, "item") else expected
+            if isinstance(expected, pd.Series):
+                expected = expected.iloc[0]
+            elif isinstance(expected, (list, tuple, set)):
+                expected = list(expected)[0]
+            expected = expected if pd.notna(expected) else "TBA"
             print(f"{course['course_code']:<10} {course['course_name']:<30} {instructor:<20} {expected:<15}")
         print("-" * 80)
         print(f"Total courses: {len(courses_df)}")
@@ -192,7 +204,12 @@ class StudentSection:
             course_info = courses_df[courses_df['course_code'] == enrollment['course_code']]
             if not course_info.empty:
                 course = course_info.iloc[0]
-                instructor = course['instructor'] if not pd.isna(course['instructor']) else "TBA"
+                instructor = course['instructor']
+                if isinstance(instructor, pd.Series):
+                    instructor = instructor.iloc[0]
+                elif isinstance(instructor, (list, tuple)):
+                    instructor = instructor[0]
+                instructor = instructor if pd.notna(instructor) else "TBA"
                 print(f"{enrollment['course_code']:<12} {course['course_name']:<30} {instructor:<20}")
             else:
                 print(f"{enrollment['course_code']:<12} {'Course not found':<30} {'N/A':<20}")
@@ -230,7 +247,12 @@ class StudentSection:
         print("-" * 100)
         for _, exam in my_schedule.iterrows():
             course_name = exam['course_name'] if 'course_name' in exam else list(courses_df[courses_df['course_code'] == exam['course_code']]['course_name'])[0]
-            instructor = exam['instructor'] if not pd.isna(exam['instructor']) else "TBA"
+            instructor = exam['instructor']
+            if isinstance(instructor, pd.Series):
+                instructor = instructor.iloc[0]
+            elif isinstance(instructor, (list, tuple)):
+                instructor = instructor[0]
+            instructor = instructor if pd.notna(instructor) else "TBA"
             print(f"{exam['course_code']:<12} {course_name:<30} {exam['date']:<15} {exam['room']:<20}")
         print("-" * 100)
         print(f"Total exams: {len(my_schedule)}")
@@ -253,9 +275,10 @@ class TeacherSection:
             print("3. Create New Course")
             print("4. View My Assigned Courses")
             print("5. Update Course Information")
-            print("6. Back to Main Menu")
+            print("6. View My Invigilations")
+            print("7. Back to Main Menu")
             
-            choice = input("\nEnter your choice (1-6): ").strip()
+            choice = input("\nEnter your choice (1-7): ").strip()
             
             if choice == '1':
                 self.view_all_courses()
@@ -268,6 +291,8 @@ class TeacherSection:
             elif choice == '5':
                 self.update_course_info()
             elif choice == '6':
+                self.view_my_invigilations()
+            elif choice == '7':
                 break
             else:
                 print("❌ Invalid choice. Please try again.")
@@ -283,8 +308,19 @@ class TeacherSection:
         print(f"{'Course Code':<12} {'Course Name':<35} {'Instructor':<25} {'Expected Students':<15}")
         print("-" * 90)
         for _, course in courses_df.iterrows():
-            instructor = course['instructor'] if not pd.isna(course['instructor']) else "⚠️ UNASSIGNED"
-            expected = course['expected_students'] if not pd.isna(course['expected_students']) else "TBA"
+            instructor = course['instructor']
+            if isinstance(instructor, pd.Series):
+                instructor = instructor.iloc[0]
+            elif isinstance(instructor, (list, tuple)):
+                instructor = instructor[0]
+            instructor = instructor if pd.notna(instructor) else "⚠️ UNASSIGNED"
+            expected = course['expected_students']
+            expected = expected.item() if hasattr(expected, "item") else expected
+            if isinstance(expected, pd.Series):
+                expected = expected.iloc[0]
+            elif isinstance(expected, (list, tuple, set)):
+                expected = list(expected)[0]
+            expected = expected if pd.notna(expected) else "TBA"
             print(f"{course['course_code']:<12} {course['course_name']:<35} {instructor:<25} {expected:<15}")
         print("-" * 90)
         unassigned = courses_df[courses_df['instructor'].isna() | (courses_df['instructor'] == "")]
@@ -312,7 +348,13 @@ class TeacherSection:
         print(f"{'Course Code':<12} {'Course Name':<35} {'Expected Students':<15}")
         print("-" * 70)
         for _, course in unassigned_courses.iterrows():
-            expected = course['expected_students'] if not pd.isna(course['expected_students']) else "TBA"
+            expected = course['expected_students']
+            expected = expected.item() if hasattr(expected, "item") else expected
+            if isinstance(expected, pd.Series):
+                expected = expected.iloc[0]
+            elif isinstance(expected, (list, tuple, set)):
+                expected = list(expected)[0]
+            expected = expected if pd.notna(expected) else "TBA"
             print(f"{course['course_code']:<12} {course['course_name']:<35} {expected:<15}")
         print("-" * 70)
         print(f"\n🎯 Enter course codes you want to teach (comma-separated):")
@@ -414,7 +456,13 @@ class TeacherSection:
         print("-" * 70)
         
         for _, course in my_courses.iterrows():
-            expected = course['expected_students'] if not pd.isna(course['expected_students']) else "TBA"
+            expected = course['expected_students']
+            expected = expected.item() if hasattr(expected, "item") else expected
+            if isinstance(expected, pd.Series):
+                expected = expected.iloc[0]
+            elif isinstance(expected, (list, tuple, set)):
+                expected = list(expected)[0]
+            expected = expected if pd.notna(expected) else "TBA"
             print(f"{course['course_code']:<12} {course['course_name']:<35} {expected:<15}")
         
         print("-" * 70)
@@ -470,6 +518,39 @@ class TeacherSection:
             print(f"✅ Successfully updated course {course_code}")
         else:
             print("❌ Failed to save course updates.")
+
+    def view_my_invigilations(self):
+        """Show all exams where the teacher is the invigilator"""
+        schedule_df = self.csv_manager.load_csv('final_schedule.csv')
+        if schedule_df.empty:
+            print("📋 No exam schedule available. Please ask admin to schedule exams.")
+            return
+        teacher_name = input("\n👨‍🏫 Enter your full name: ").strip()
+        my_invigilations = schedule_df[schedule_df['instructor'] == teacher_name]
+        if my_invigilations.empty:
+            print(f"📋 No invigilation assignments found for {teacher_name}.")
+            return
+        print(f"\n🕑 INVIGILATION SCHEDULE FOR {teacher_name}:")
+        print("=" * 120)
+        has_session = 'session' in my_invigilations.columns
+        header = f"{'Date':<12} {'Session':<10} {'Room':<15} {'Course':<10} {'Course Name':<25} {'Students':<8}"
+        if not has_session:
+            header = f"{'Date':<12} {'Room':<15} {'Course':<10} {'Course Name':<25} {'Students':<8}"
+        print(header)
+        print("-" * 120)
+        for _, exam in my_invigilations.iterrows():
+            students = exam['enrolled_students']
+            if isinstance(students, pd.Series):
+                students = students.iloc[0]
+            elif isinstance(students, (list, tuple, set)):
+                students = list(students)[0]
+            students = "0" if pd.isna(students) else students
+            if has_session:
+                print(f"{exam['date']:<12} {exam['session']:<10} {exam['room'][:14]:<15} {exam['course_code']:<10} {exam['course_name'][:24]:<25} {students:<8}")
+            else:
+                print(f"{exam['date']:<12} {exam['room'][:14]:<15} {exam['course_code']:<10} {exam['course_name'][:24]:<25} {students:<8}")
+        print("-" * 120)
+        print(f"Total invigilation assignments: {len(my_invigilations)}")
 
 class AdminSection:
     """Handles admin operations and scheduling"""
@@ -722,31 +803,59 @@ class AdminSection:
     def _schedule_graph_coloring(self, courses_df, students_df, rooms_df, constraints):
         """Schedule using graph coloring algorithm"""
         print("\n🎨 Using Graph Coloring Algorithm...")
-        
         # Build conflict graph
         conflicts = self._build_conflict_graph(students_df)
-        
         # Create NetworkX graph
         G = nx.Graph()
         G.add_nodes_from(courses_df['course_code'])
-        
         # Add edges for conflicts
         for course1, conflicting_courses in conflicts.items():
             for course2 in conflicting_courses:
                 G.add_edge(course1, course2)
-        
         # Apply graph coloring
         coloring = nx.greedy_color(G, strategy='largest_first')
-        
         # Generate schedule
         schedule = self._create_schedule_from_coloring(coloring, courses_df, students_df, rooms_df, constraints)
-        
+
+        # --- BENCH ASSIGNMENT LOGIC ---
+        # Connect to MongoDB Atlas and fetch students from auth.studentauth
+        try:
+            MONGO_URI = "mongodb+srv://joseph25rejo:exam-management-system@exammanagementsystem.7otxrdo.mongodb.net/auth?retryWrites=true&w=majority"
+            client = MongoClient(MONGO_URI)
+            db = client["auth"]
+            collection = db["studentauth"]
+            all_students = list(collection.find({}))
+            # Group students by USN prefix
+            group_ai = [s for s in all_students if s.get('student_id', '').startswith(('1RV23AI', '1RV24AI'))]
+            group_is = [s for s in all_students if s.get('student_id', '').startswith('1RV23IS')]
+            benches = []
+            min_len = min(len(group_ai), len(group_is))
+            for i in range(min_len):
+                benches.append({
+                    'bench': i+1,
+                    'student_ai': group_ai[i],
+                    'student_is': group_is[i]
+                })
+            # Optionally, handle leftovers if groups are unequal
+            # for i, s in enumerate(group_ai[min_len:]):
+            #     benches.append({'bench': min_len+i+1, 'student_ai': s, 'student_is': None})
+            # for i, s in enumerate(group_is[min_len:]):
+            #     benches.append({'bench': min_len+len(group_ai[min_len:])+i+1, 'student_ai': None, 'student_is': s})
+        except Exception as e:
+            print(f"❌ Error fetching students from MongoDB for bench assignment: {e}")
+            benches = []
+        # Assign benches to each exam in the schedule (round-robin)
+        for idx, exam in enumerate(schedule):
+            if benches:
+                exam['benches'] = benches[idx % len(benches)]
+            else:
+                exam['benches'] = None
+        # --- END BENCH ASSIGNMENT ---
+
         print(f"✅ Scheduling completed using {max(coloring.values()) + 1} time slots")
-        
         if self._save_final_schedule(schedule):
             print("📄 Schedule saved to final_schedule.csv")
             return schedule
-         
     
     def _schedule_ortools(self, courses_df, students_df, rooms_df, constraints):
         """Schedule using OR-Tools constraint solver"""
@@ -1106,9 +1215,15 @@ class AdminSection:
             exams_on_day += 1
         
         prof_absences = constraints.get('professor_absences', {})
+        # Prepare to track how many exams are on each date for session assignment
+        date_exam_counter = {}
         for course_code, color in coloring.items():
             course_info = courses_df[courses_df['course_code'] == course_code].iloc[0]
             instructor = course_info['instructor']
+            if isinstance(instructor, pd.Series):
+                instructor = instructor.iloc[0]
+            elif isinstance(instructor, (list, tuple)):
+                instructor = instructor[0]
             enrolled = student_counts.get(course_code, 0)
             suitable_room = sorted_rooms.iloc[0]
             exam_date = slot_to_date[color]
@@ -1117,14 +1232,23 @@ class AdminSection:
             while exam_date.strftime('%Y-%m-%d') in abs_dates:
                 # Move to next day
                 exam_date += timedelta(days=1)
+            # Get all USNs for this course
+            usns = students_df[students_df['course_code'] == course_code]['student_id'].tolist()
+            # Assign session (morning/evening) based on how many exams already on that date
+            date_str = exam_date.strftime('%Y-%m-%d')
+            session_count = date_exam_counter.get(date_str, 0)
+            session = 'Morning' if session_count % 2 == 0 else 'Evening'
+            date_exam_counter[date_str] = session_count + 1
             # Now assign
             schedule.append({
                 'course_code': course_code,
                 'course_name': course_info['course_name'],
                 'instructor': instructor,
-                'date': exam_date.strftime('%Y-%m-%d'),
+                'date': date_str,
                 'room': suitable_room['room_name'],
-                'enrolled_students': enrolled
+                'enrolled_students': enrolled,
+                'room_usns': usns,
+                'session': session
             })
         return schedule
     
@@ -1149,16 +1273,36 @@ class AdminSection:
             print("❌ The current schedule file does not have a 'date' column. Please re-run the scheduler to generate a new schedule.")
             return
         print("\n📅 CURRENT EXAM SCHEDULE")
-        print("=" * 100)
-        print(f"{'Course':<10} {'Course Name':<25} {'Instructor':<20} {'Date':<12} {'Room':<15} {'Students':<8}")
-        print("-" * 100)
+        print("=" * 120)
+        # Check if session column exists
+        has_session = 'session' in schedule_df.columns
+        header = f"{'Course':<10} {'Course Name':<25} {'Instructor':<20} {'Date':<12} {'Session':<10} {'Room':<15} {'Students':<8}"
+        if not has_session:
+            header = f"{'Course':<10} {'Course Name':<25} {'Instructor':<20} {'Date':<12} {'Room':<15} {'Students':<8}"
+        print(header)
+        print("-" * 120)
         for _, exam in schedule_df.iterrows():
-            instructor = exam['instructor'] if not pd.isna(exam['instructor']) else "TBA"
-            students = exam['enrolled_students'] if not pd.isna(exam['enrolled_students']) else "0"
-            print(f"{exam['course_code']:<10} {exam['course_name'][:24]:<25} "
-                  f"{instructor[:19]:<20} {exam['date']:<12} "
-                  f"{exam['room'][:14]:<15} {students:<8}")
-        print("-" * 100)
+            instructor = exam['instructor']
+            if isinstance(instructor, pd.Series):
+                instructor = instructor.iloc[0]
+            elif isinstance(instructor, (list, tuple)):
+                instructor = instructor[0]
+            instructor = instructor if pd.notna(instructor) else "TBA"
+            students = exam['enrolled_students']
+            if isinstance(students, pd.Series):
+                students = students.iloc[0]
+            elif isinstance(students, (list, tuple, set)):
+                students = list(students)[0]
+            students = "0" if pd.isna(students) else students
+            if has_session:
+                print(f"{exam['course_code']:<10} {exam['course_name'][:24]:<25} "
+                      f"{instructor[:19]:<20} {exam['date']:<12} "
+                      f"{exam['session']:<10} {exam['room'][:14]:<15} {students:<8}")
+            else:
+                print(f"{exam['course_code']:<10} {exam['course_name'][:24]:<25} "
+                      f"{instructor[:19]:<20} {exam['date']:<12} "
+                      f"{exam['room'][:14]:<15} {students:<8}")
+        print("-" * 120)
         print(f"Total scheduled exams: {len(schedule_df)}")
         # Show date summary
         print(f"\n📅 Date Summary:")

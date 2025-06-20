@@ -1,7 +1,13 @@
 course_code,course_name,instructor,expected_students
-PY106,Python Programming,Dr. Somesh,27
-AI101,Artificial Intelligence,Dr. Sonika,32
-DS105,Data Structures,Dr. Somesh,37
-CS102,Computer Systems,Dr. Rajesh,35
-EC104,Embedded Circuits,Dr. Somesh,35
-MA103,Mathematics III,Dr. Sonika,38
+PY106,Python Programming,Dr. Somesh Nandi,27
+AI101,Artificial Intelligence,Dr. Vishwardhan,32
+DS105,Data Structures,Dr. Rajesh,37
+CS102,Computer Systems,Dr. Narshima,35
+EC104,Embedded Circuits,Dr. VijayLaxmi,35
+MA103,Mathematics III,Dr. Anupama,38
+21CS53,Database Management Systems,Dr. Ayesha Khan,30
+21IS54,Operating Systems,Dr. Nikhil Sinha,36
+21IS56,Software Engineering,Dr. Rekha Menon,27
+21CS57,Machine Learning,Dr. Arvind Krishnan,35
+21IS58,Web Development,Dr. Ramesh Iyer,33
+21IS59,Cloud Computing,Dr. Suresh Desai,32

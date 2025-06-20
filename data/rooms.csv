@@ -1,7 +1,7 @@
 room_id,room_name,capacity
-R001,Room A,30
+R001,Room A,40
 R002,Room B,40
-R003,Room C,50
-R004,Room D,60
-R005,Room E,70
-R006,Room F,80
+R003,Room C,40
+R004,Room D,40
+R005,Room E,40
+R006,Room F,40

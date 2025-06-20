@@ -1,0 +1,248 @@
+============================
+EXAM MANAGEMENT API ENDPOINTS REFERENCE
+============================
+
+---
+1. LOGIN
+---
+POST /api/login
+Body:
+{
+  "role": "student" | "teacher" | "admin",
+  "USN": "1RV23AI001",  // or "UserID": "1RV23AI001"
+  "Password": "your_password"
+}
+Example Response:
+{
+  "message": "Login successful",
+  "user": {
+    "USN": "1RV23AI001",
+    "Name": "AADITEY CHALVA",
+    "student_id": "1RV23AI001",
+    "_id": "..."
+  }
+}
+
+---
+2. GET ALL COURSES
+---
+GET /api/courses
+Example Response:
+[
+  {
+    "course_code": "CS101",
+    "course_name": "Intro to Programming",
+    "instructor": "Dr. Smith",
+    "expected_students": 45,
+    "_id": "..."
+  },
+  ...
+]
+
+---
+3. CREATE COURSE
+---
+POST /api/courses
+Body:
+{
+  "course_code": "CS102",
+  "course_name": "Data Structures"
+}
+Example Response:
+{
+  "message": "Course created successfully",
+  "id": "..."
+}
+
+---
+4. UPDATE COURSE
+---
+PUT /api/courses/<course_code>
+Body:
+{
+  "course_name": "Advanced Data Structures"
+}
+Example Response:
+{
+  "message": "Course updated successfully"
+}
+
+---
+5. GET ALL STUDENTS
+---
+GET /api/students
+Example Response:
+[
+  {
+    "student_id": "1RV23AI001",
+    "name": "AADITEY CHALVA",
+    "course_code": "CS101",
+    "_id": "..."
+  },
+  ...
+]
+
+---
+6. ENROLL STUDENT IN COURSE
+---
+POST /api/students/enroll
+Body:
+{
+  "student_id": "1RV23AI001",
+  "name": "AADITEY CHALVA",
+  "course_code": "CS101"
+}
+Example Response:
+{
+  "message": "Enrollment successful",
+  "id": "..."
+}
+
+---
+7. GET STUDENT'S ENROLLED COURSES
+---
+GET /api/students/<student_id>/courses
+Example Response:
+[
+  {
+    "course_code": "CS101",
+    "course_name": "Intro to Programming",
+    "instructor": "Dr. Smith",
+    "expected_students": 45,
+    "_id": "..."
+  },
+  ...
+]
+
+---
+8. GET ALL ROOMS
+---
+GET /api/rooms
+Example Response:
+[
+  {
+    "room_id": "HALL-A",
+    "room_name": "Main Hall A",
+    "capacity": 200,
+    "_id": "..."
+  },
+  ...
+]
+
+---
+9. CREATE ROOM
+---
+POST /api/rooms
+Body:
+{
+  "room_id": "HALL-C",
+  "room_name": "New Hall",
+  "capacity": 100
+}
+Example Response:
+{
+  "message": "Room created successfully",
+  "id": "..."
+}
+
+---
+10. GENERATE SCHEDULE
+---
+POST /api/schedules/generate
+Body:
+{
+  "algorithm": "graph_coloring", // or "simulated_annealing", "genetic"
+  "constraints": { ... }
+}
+Example Response:
+{
+  "message": "Schedule generated successfully",
+  "id": "...",
+  "schedule": [ ... ]
+}
+
+---
+11. GET EXAM SCHEDULE (ALL OR FILTERED)
+---
+GET /api/schedules
+Optional query params: ?course_code=CS101&room=Main%20Hall%20A&date=2024-06-01
+Example Response:
+[
+  {
+    "course_code": "CS101",
+    "course_name": "Intro to Programming",
+    "instructor": "Dr. Smith",
+    "date": "2024-06-01",
+    "room": "Main Hall A",
+    "enrolled_students": 45,
+    "room_usns": ["1RV23AI001", ...],
+    "session": "Morning"
+  },
+  ...
+]
+
+---
+12. GET STUDENT HALLTICKET
+---
+GET /api/students/<student_id>/hallticket
+Example Response:
+[
+  {
+    "course_code": "CS101",
+    "course_name": "Intro to Programming",
+    "date": "2024-06-01",
+    "room": "Main Hall A",
+    "session": "Morning"
+  },
+  ...
+]
+
+---
+13. GET TEACHER INVIGILATIONS
+---
+GET /api/teachers/<teacher_name>/invigilations
+Example Response:
+[
+  {
+    "course_code": "CS101",
+    "date": "2024-06-01",
+    "room": "Main Hall A",
+    "session": "Morning"
+  },
+  ...
+]
+
+---
+14. GET BENCH ASSIGNMENTS FOR A COURSE
+---
+GET /api/schedules/<course_code>/benches
+Example Response:
+{
+  "benches": [
+    {"bench": 1, "student_ai": {...}, "student_is": {...}},
+    ...
+  ]
+}
+
+---
+15. GET SCHEDULE CONFLICTS
+---
+GET /api/schedules/conflicts
+Example Response:
+{
+  "conflicts": [ ... ]
+}
+
+---
+16. GET SYSTEM STATISTICS
+---
+GET /api/statistics
+Example Response:
+{
+  "courses": 6,
+  "students": 100,
+  "rooms": 5,
+  "enrollments": 200,
+  "schedules": 2,
+  "most_popular_course": {"_id": "CS101", "count": 45}
+} 
