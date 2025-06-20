@@ -220,7 +220,7 @@ def generate_schedule():
     from app import AdminSection
     
     # Create a temporary CSV manager for the scheduling algorithms
-    class SchedulingCSVManager:
+    class SchedulingCSVManager(CSVManager):
         def __init__(self):
             self.data = {
                 'courses.csv': courses_df,
@@ -253,12 +253,14 @@ def generate_schedule():
             
     admin = AdminSection(csv_manager=TempCSVManager())
     
+    constraints = data.get('constraints', {})  # or set defaults as needed
+    
     if algorithm == 'graph_coloring':
-        schedule = admin._schedule_graph_coloring(courses_df, students_df, rooms_df)
+        schedule = admin._schedule_graph_coloring(courses_df, students_df, rooms_df, constraints)
     elif algorithm == 'simulated_annealing':
-        schedule = admin._schedule_simulated_annealing(courses_df, students_df, rooms_df)
+        schedule = admin._schedule_simulated_annealing(courses_df, students_df, rooms_df, constraints)
     elif algorithm == 'genetic':
-        schedule = admin._schedule_genetic_algorithm(courses_df, students_df, rooms_df)
+        schedule = admin._schedule_genetic_algorithm(courses_df, students_df, rooms_df, constraints)
     else:
         return jsonify({'error': 'Invalid algorithm specified'}), 400
     

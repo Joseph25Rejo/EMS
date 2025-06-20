@@ -5,7 +5,7 @@ import os
 import json
 from collections import defaultdict
 from typing import Dict, List, Set, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import math
 try:
     from ortools.sat.python import cp_model
@@ -29,13 +29,14 @@ class CSVManager:
             'courses.csv': ['course_code', 'course_name', 'instructor', 'expected_students'],
             'students.csv': ['student_id', 'name', 'course_code'],
             'rooms.csv': ['room_id', 'room_name', 'capacity'],
-            'final_schedule.csv': ['course_code', 'course_name', 'instructor', 'time_slot', 'room', 'enrolled_students']
+            'final_schedule.csv': ['course_code', 'course_name', 'instructor', 'date', 'room', 'enrolled_students']
         }
         
         for filename, columns in csv_files.items():
             filepath = os.path.join(self.data_dir, filename)
             if not os.path.exists(filepath):
-                pd.DataFrame(columns=columns).to_csv(filepath, index=False)
+                df = pd.DataFrame(columns=pd.Index(columns))
+                df.to_csv(filepath, index=False)
                 print(f"📄 Created {filename}")
     
     def load_csv(self, filename):
@@ -72,9 +73,10 @@ class StudentSection:
             print("1. View Available Courses")
             print("2. Enroll in Courses")
             print("3. View My Enrollments")
-            print("4. Back to Main Menu")
+            print("4. View My Hallticket")
+            print("5. Back to Main Menu")
             
-            choice = input("\nEnter your choice (1-4): ").strip()
+            choice = input("\nEnter your choice (1-5): ").strip()
             
             if choice == '1':
                 self.view_available_courses()
@@ -83,6 +85,8 @@ class StudentSection:
             elif choice == '3':
                 self.view_my_enrollments()
             elif choice == '4':
+                self.view_my_hallticket()
+            elif choice == '5':
                 break
             else:
                 print("❌ Invalid choice. Please try again.")
@@ -90,21 +94,17 @@ class StudentSection:
     def view_available_courses(self):
         """Display all available courses"""
         courses_df = self.csv_manager.load_csv('courses.csv')
-        
         if courses_df.empty:
             print("📋 No courses available yet.")
             return
-        
         print("\n📋 AVAILABLE COURSES:")
         print("-" * 80)
         print(f"{'Code':<10} {'Course Name':<30} {'Instructor':<20} {'Expected Students':<15}")
         print("-" * 80)
-        
         for _, course in courses_df.iterrows():
-            instructor = course['instructor'] if pd.notna(course['instructor']) else "TBA"
-            expected = course['expected_students'] if pd.notna(course['expected_students']) else "TBA"
+            instructor = course['instructor'] if not pd.isna(course['instructor']) else "TBA"
+            expected = course['expected_students'] if not pd.isna(course['expected_students']) else "TBA"
             print(f"{course['course_code']:<10} {course['course_name']:<30} {instructor:<20} {expected:<15}")
-        
         print("-" * 80)
         print(f"Total courses: {len(courses_df)}")
     
@@ -112,74 +112,52 @@ class StudentSection:
         """Handle student enrollment"""
         courses_df = self.csv_manager.load_csv('courses.csv')
         students_df = self.csv_manager.load_csv('students.csv')
-        
         if courses_df.empty:
             print("❌ No courses available for enrollment.")
             return
-        
-        # Get student information
         student_id = input("\n🆔 Enter your Student ID: ").strip()
         student_name = input("📝 Enter your Full Name: ").strip()
-        
         if not student_id or not student_name:
             print("❌ Student ID and Name are required.")
             return
-        
-        # Show available courses
         self.view_available_courses()
-        
         print(f"\n🎯 Hi {student_name}! Enter course codes you want to enroll in.")
         print("💡 Enter codes separated by commas (e.g., CS101,MATH201,PHYS301)")
         print("📋 Or enter them one by one (press Enter with empty input to finish)")
-        
         course_codes = set()
-        
-        # Option 1: All at once
         bulk_input = input("\nEnter course codes (comma-separated) or press Enter for one-by-one: ").strip()
-        
         if bulk_input:
             course_codes.update([code.strip().upper() for code in bulk_input.split(',')])
         else:
-            # Option 2: One by one
             print("\nEnter course codes one by one:")
             while True:
                 code = input("Course code (or press Enter to finish): ").strip().upper()
                 if not code:
                     break
                 course_codes.add(code)
-        
         if not course_codes:
             print("❌ No course codes entered.")
             return
-        
-        # Validate course codes
         valid_codes = set(courses_df['course_code'].str.upper())
         invalid_codes = course_codes - valid_codes
         valid_enrollments = course_codes & valid_codes
-        
         if invalid_codes:
             print(f"⚠️  Invalid course codes: {', '.join(invalid_codes)}")
-        
         if not valid_enrollments:
             print("❌ No valid course codes to enroll in.")
             return
-        
-        # Check for existing enrollments
-        existing_enrollments = students_df[
-            (students_df['student_id'] == student_id) & 
-            (students_df['course_code'].isin(valid_enrollments))
-        ]['course_code'].tolist()
-        
+        existing_enrollments = [
+            code.upper() for code in students_df[
+                (students_df['student_id'] == student_id) &
+                (students_df['course_code'].str.upper().isin(valid_enrollments))
+            ]['course_code'].tolist()
+        ]
         new_enrollments = valid_enrollments - set(existing_enrollments)
-        
         if existing_enrollments:
             print(f"⚠️  Already enrolled in: {', '.join(existing_enrollments)}")
-        
         if not new_enrollments:
             print("❌ No new courses to enroll in.")
             return
-        
-        # Add new enrollments
         new_records = []
         for course_code in new_enrollments:
             new_records.append({
@@ -187,10 +165,7 @@ class StudentSection:
                 'name': student_name,
                 'course_code': course_code
             })
-        
-        # Append to existing students data
         updated_students_df = pd.concat([students_df, pd.DataFrame(new_records)], ignore_index=True)
-        
         if self.csv_manager.save_csv(updated_students_df, 'students.csv'):
             print(f"✅ Successfully enrolled in: {', '.join(new_enrollments)}")
             print(f"📊 Total enrollments for {student_name}: {len(updated_students_df[updated_students_df['student_id'] == student_id])}")
@@ -201,35 +176,64 @@ class StudentSection:
         """View student's current enrollments"""
         students_df = self.csv_manager.load_csv('students.csv')
         courses_df = self.csv_manager.load_csv('courses.csv')
-        
         if students_df.empty:
             print("📋 No enrollment records found.")
             return
-        
         student_id = input("\n🆔 Enter your Student ID: ").strip()
-        
         my_enrollments = students_df[students_df['student_id'] == student_id]
-        
         if my_enrollments.empty:
             print(f"📋 No enrollments found for Student ID: {student_id}")
             return
-        
         print(f"\n📚 ENROLLMENTS FOR {my_enrollments.iloc[0]['name']} ({student_id}):")
         print("-" * 60)
         print(f"{'Course Code':<12} {'Course Name':<30} {'Instructor':<20}")
         print("-" * 60)
-        
         for _, enrollment in my_enrollments.iterrows():
             course_info = courses_df[courses_df['course_code'] == enrollment['course_code']]
             if not course_info.empty:
                 course = course_info.iloc[0]
-                instructor = course['instructor'] if pd.notna(course['instructor']) else "TBA"
+                instructor = course['instructor'] if not pd.isna(course['instructor']) else "TBA"
                 print(f"{enrollment['course_code']:<12} {course['course_name']:<30} {instructor:<20}")
             else:
                 print(f"{enrollment['course_code']:<12} {'Course not found':<30} {'N/A':<20}")
-        
         print("-" * 60)
         print(f"Total enrolled courses: {len(my_enrollments)}")
+    
+    def view_my_hallticket(self):
+        """Display the student's hallticket (exam schedule) with actual dates"""
+        students_df = self.csv_manager.load_csv('students.csv')
+        schedule_df = self.csv_manager.load_csv('final_schedule.csv')
+        courses_df = self.csv_manager.load_csv('courses.csv')
+        if students_df.empty:
+            print("📋 No enrollment records found.")
+            return
+        if schedule_df.empty:
+            print("📋 No exam schedule available. Please ask admin to schedule exams.")
+            return
+        if 'date' not in schedule_df.columns:
+            print("❌ The current schedule file does not have a 'date' column. Please re-run the scheduler to generate a new schedule.")
+            return
+        student_id = input("\n🆔 Enter your Student ID: ").strip()
+        my_enrollments = students_df[students_df['student_id'] == student_id]
+        if my_enrollments.empty:
+            print(f"📋 No enrollments found for Student ID: {student_id}")
+            return
+        enrolled_courses = list(my_enrollments['course_code'])
+        my_schedule = schedule_df[schedule_df['course_code'].isin(enrolled_courses)]
+        if my_schedule.empty:
+            print("📋 No scheduled exams found for your courses.")
+            return
+        student_name = my_enrollments.iloc[0]['name']
+        print(f"\n🎫 HALLTICKET FOR {student_name} ({student_id}):")
+        print("-" * 100)
+        print(f"{'Course Code':<12} {'Course Name':<30} {'Date':<15} {'Room':<20}")
+        print("-" * 100)
+        for _, exam in my_schedule.iterrows():
+            course_name = exam['course_name'] if 'course_name' in exam else list(courses_df[courses_df['course_code'] == exam['course_code']]['course_name'])[0]
+            instructor = exam['instructor'] if not pd.isna(exam['instructor']) else "TBA"
+            print(f"{exam['course_code']:<12} {course_name:<30} {exam['date']:<15} {exam['room']:<20}")
+        print("-" * 100)
+        print(f"Total exams: {len(my_schedule)}")
 
 class TeacherSection:
     """Handles teacher-related operations"""
@@ -271,98 +275,72 @@ class TeacherSection:
     def view_all_courses(self):
         """Display all courses with instructor information"""
         courses_df = self.csv_manager.load_csv('courses.csv')
-        
         if courses_df.empty:
             print("📋 No courses available.")
             return
-        
         print("\n📋 ALL COURSES:")
         print("-" * 90)
         print(f"{'Course Code':<12} {'Course Name':<35} {'Instructor':<25} {'Expected Students':<15}")
         print("-" * 90)
-        
         for _, course in courses_df.iterrows():
-            instructor = course['instructor'] if pd.notna(course['instructor']) else "⚠️ UNASSIGNED"
-            expected = course['expected_students'] if pd.notna(course['expected_students']) else "TBA"
+            instructor = course['instructor'] if not pd.isna(course['instructor']) else "⚠️ UNASSIGNED"
+            expected = course['expected_students'] if not pd.isna(course['expected_students']) else "TBA"
             print(f"{course['course_code']:<12} {course['course_name']:<35} {instructor:<25} {expected:<15}")
-        
         print("-" * 90)
-        
-        # Count unassigned courses
         unassigned = courses_df[courses_df['instructor'].isna() | (courses_df['instructor'] == "")]
         print(f"Total courses: {len(courses_df)} | ⚠️ Unassigned: {len(unassigned)}")
     
     def assign_to_existing_course(self):
         """Assign teacher to an existing course"""
         courses_df = self.csv_manager.load_csv('courses.csv')
-        
         if courses_df.empty:
             print("❌ No courses available.")
             return
-        
         teacher_name = input("\n👨‍🏫 Enter your full name: ").strip()
         if not teacher_name:
             print("❌ Teacher name is required.")
             return
-        
-        # Show unassigned courses
         unassigned_courses = courses_df[courses_df['instructor'].isna() | (courses_df['instructor'] == "")]
-        
         if unassigned_courses.empty:
             print("📋 All courses are already assigned to instructors.")
             print("\nWould you like to view all courses? (y/n)")
             if input().strip().lower() == 'y':
                 self.view_all_courses()
             return
-        
         print(f"\n📋 UNASSIGNED COURSES (Available for {teacher_name}):")
         print("-" * 70)
         print(f"{'Course Code':<12} {'Course Name':<35} {'Expected Students':<15}")
         print("-" * 70)
-        
         for _, course in unassigned_courses.iterrows():
-            expected = course['expected_students'] if pd.notna(course['expected_students']) else "TBA"
+            expected = course['expected_students'] if not pd.isna(course['expected_students']) else "TBA"
             print(f"{course['course_code']:<12} {course['course_name']:<35} {expected:<15}")
-        
         print("-" * 70)
-        
-        # Get course codes to assign
         print(f"\n🎯 Enter course codes you want to teach (comma-separated):")
         course_input = input("Course codes: ").strip().upper()
-        
         if not course_input:
             print("❌ No course codes entered.")
             return
-        
         course_codes = [code.strip() for code in course_input.split(',')]
-        
-        # Validate and assign courses
         valid_assignments = []
         invalid_codes = []
         already_assigned = []
-        
+        unassigned_codes = unassigned_courses['course_code'].tolist()
+        all_codes = courses_df['course_code'].tolist()
         for code in course_codes:
-            if code in unassigned_courses['course_code'].values:
+            if code in unassigned_codes:
                 valid_assignments.append(code)
-            elif code in courses_df['course_code'].values:
+            elif code in all_codes:
                 already_assigned.append(code)
             else:
                 invalid_codes.append(code)
-        
-        # Show results
         if invalid_codes:
             print(f"❌ Invalid course codes: {', '.join(invalid_codes)}")
-        
         if already_assigned:
             print(f"⚠️  Already assigned courses: {', '.join(already_assigned)}")
-        
         if not valid_assignments:
             print("❌ No valid unassigned courses to assign.")
             return
-        
-        # Update course assignments
         courses_df.loc[courses_df['course_code'].isin(valid_assignments), 'instructor'] = teacher_name
-        
         if self.csv_manager.save_csv(courses_df, 'courses.csv'):
             print(f"✅ Successfully assigned {teacher_name} to: {', '.join(valid_assignments)}")
         else:
@@ -388,7 +366,7 @@ class TeacherSection:
             return
         
         # Check if course code already exists
-        if course_code in courses_df['course_code'].values:
+        if course_code in courses_df['course_code'].tolist():
             print(f"❌ Course code {course_code} already exists.")
             return
         
@@ -436,7 +414,7 @@ class TeacherSection:
         print("-" * 70)
         
         for _, course in my_courses.iterrows():
-            expected = course['expected_students'] if pd.notna(course['expected_students']) else "TBA"
+            expected = course['expected_students'] if not pd.isna(course['expected_students']) else "TBA"
             print(f"{course['course_code']:<12} {course['course_name']:<35} {expected:<15}")
         
         print("-" * 70)
@@ -464,7 +442,7 @@ class TeacherSection:
         
         course_code = input("\nEnter course code to update: ").strip().upper()
         
-        if course_code not in my_courses['course_code'].values:
+        if course_code not in my_courses['course_code'].tolist():
             print(f"❌ Course {course_code} not found in your assignments.")
             return
         
@@ -590,12 +568,16 @@ class AdminSection:
         # Display conflicts
         displayed_pairs = set()
         for course1, conflicting_courses in conflicts.items():
-            course1_name = courses_df[courses_df['course_code'] == course1]['course_name'].iloc[0] if not courses_df[courses_df['course_code'] == course1].empty else "Unknown"
+            filtered = courses_df[courses_df['course_code'] == course1]
+            course1_names = filtered['course_name'].tolist()
+            course1_name = course1_names[0] if course1_names else "Unknown"
             
             for course2 in conflicting_courses:
                 pair = tuple(sorted([course1, course2]))
                 if pair not in displayed_pairs:
-                    course2_name = courses_df[courses_df['course_code'] == course2]['course_name'].iloc[0] if not courses_df[courses_df['course_code'] == course2].empty else "Unknown"
+                    filtered2 = courses_df[courses_df['course_code'] == course2]
+                    course2_names = filtered2['course_name'].tolist()
+                    course2_name = course2_names[0] if course2_names else "Unknown"
                     
                     # Count students causing this conflict
                     conflict_students = [
@@ -635,6 +617,69 @@ class AdminSection:
         print(f"   Courses: {len(courses_df)}")
         print(f"   Students: {len(students_df)}")
         print(f"   Rooms: {len(rooms_df)}")
+
+        # --- NEW: Prompt for professor absences ---
+        print("\n👨‍🏫 Enter professor absences (leave blank if none).\nFor each professor, enter their name and the dates (YYYY-MM-DD) they are absent, separated by commas.")
+        instructors = sorted(set(courses_df['instructor'].dropna().unique()))
+        professor_absences = {}
+        for instructor in instructors:
+            print(f"- {instructor}")
+            dates_str = input(f"  Absent dates for {instructor} (comma-separated, or blank): ").strip()
+            if dates_str:
+                date_list = [d.strip() for d in dates_str.split(',') if d.strip()]
+                professor_absences[instructor] = date_list
+        print(f"Absences recorded: {professor_absences}")
+
+        # --- NEW: Prompt for scheduling mode ---
+        print("\n🗓️  Scheduling Options:")
+        print("1. Specify total number of days (system spreads exams)")
+        print("2. Specify max exams per day (system calculates minimum days)")
+        print("3. Default: Minimum days, max 2 exams per day, no conflicts (start date = 20 days from now)")
+        mode = input("Choose scheduling mode (1-3): ").strip()
+        
+        from datetime import datetime, timedelta
+        today = datetime.today().date()
+        start_date = None
+        total_days = None
+        max_exams_per_day = None
+        if mode == '1':
+            start_date_str = input("Enter start date for exams (YYYY-MM-DD): ").strip()
+            try:
+                start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            except Exception:
+                print("Invalid date format. Using 20 days from now.")
+                start_date = today + timedelta(days=20)
+            total_days_str = input("Enter total number of days for exams: ").strip()
+            try:
+                total_days = int(total_days_str)
+            except Exception:
+                print("Invalid number. Using minimum required.")
+                total_days = None
+        elif mode == '2':
+            start_date_str = input("Enter start date for exams (YYYY-MM-DD): ").strip()
+            try:
+                start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            except Exception:
+                print("Invalid date format. Using 20 days from now.")
+                start_date = today + timedelta(days=20)
+            max_exams_str = input("Enter max exams per day: ").strip()
+            try:
+                max_exams_per_day = int(max_exams_str)
+            except Exception:
+                print("Invalid number. Using 2.")
+                max_exams_per_day = 2
+        else:
+            start_date = today + timedelta(days=20)
+            max_exams_per_day = 2
+        
+        # Prepare constraints to pass to algorithms
+        constraints = {
+            'professor_absences': professor_absences,
+            'start_date': start_date,
+            'total_days': total_days,
+            'max_exams_per_day': max_exams_per_day
+        }
+        print(f"\nScheduling constraints: {constraints}")
         
         # Show available algorithms
         print(f"\n🎯 Available Scheduling Algorithms:")
@@ -646,16 +691,16 @@ class AdminSection:
         algo_choice = input("\nChoose algorithm (1-4): ").strip()
         
         if algo_choice == '1':
-            self._schedule_graph_coloring(courses_df, students_df, rooms_df)
+            self._schedule_graph_coloring(courses_df, students_df, rooms_df, constraints)
         elif algo_choice == '2':
             if ORTOOLS_AVAILABLE:
-                self._schedule_ortools(courses_df, students_df, rooms_df)
+                self._schedule_ortools(courses_df, students_df, rooms_df, constraints)
             else:
                 print("❌ OR-Tools not available. Please install: pip install ortools")
         elif algo_choice == '3':
-            self._schedule_simulated_annealing(courses_df, students_df, rooms_df)
+            self._schedule_simulated_annealing(courses_df, students_df, rooms_df, constraints)
         elif algo_choice == '4':
-            self._schedule_genetic_algorithm(courses_df, students_df, rooms_df)
+            self._schedule_genetic_algorithm(courses_df, students_df, rooms_df, constraints)
         else:
             print("❌ Invalid algorithm choice.")
     
@@ -674,7 +719,7 @@ class AdminSection:
         self.csv_manager.save_csv(rooms_df, 'rooms.csv')
         print("✅ Created default rooms.")
     
-    def _schedule_graph_coloring(self, courses_df, students_df, rooms_df):
+    def _schedule_graph_coloring(self, courses_df, students_df, rooms_df, constraints):
         """Schedule using graph coloring algorithm"""
         print("\n🎨 Using Graph Coloring Algorithm...")
         
@@ -694,16 +739,16 @@ class AdminSection:
         coloring = nx.greedy_color(G, strategy='largest_first')
         
         # Generate schedule
-        schedules = self._create_schedule_from_coloring(coloring, courses_df, students_df, rooms_df)
+        schedule = self._create_schedule_from_coloring(coloring, courses_df, students_df, rooms_df, constraints)
         
         print(f"✅ Scheduling completed using {max(coloring.values()) + 1} time slots")
         
         if self._save_final_schedule(schedule):
             print("📄 Schedule saved to final_schedule.csv")
-            return schedules
+            return schedule
          
     
-    def _schedule_ortools(self, courses_df, students_df, rooms_df):
+    def _schedule_ortools(self, courses_df, students_df, rooms_df, constraints):
         """Schedule using OR-Tools constraint solver"""
         print("\n🔧 Using OR-Tools Constraint Solver...")
         
@@ -770,7 +815,7 @@ class AdminSection:
                                 'course_code': c,
                                 'course_name': course_info['course_name'],
                                 'instructor': course_info['instructor'],
-                                'time_slot': f'Slot-{t+1}',
+                                'date': datetime.today().strftime('%Y-%m-%d'),
                                 'room': room_info['room_name'],
                                 'enrolled_students': enrolled
                             })
@@ -781,7 +826,7 @@ class AdminSection:
         else:
             print("❌ No feasible solution found with OR-Tools")
     
-    def _schedule_simulated_annealing(self, courses_df, students_df, rooms_df):
+    def _schedule_simulated_annealing(self, courses_df, students_df, rooms_df, constraints):
         """Schedule using simulated annealing algorithm"""
         print("\n🌡️  Using Simulated Annealing Algorithm...")
         
@@ -880,7 +925,7 @@ class AdminSection:
                 'course_code': course,
                 'course_name': course_info['course_name'],
                 'instructor': course_info['instructor'],
-                'time_slot': f'Slot-{time_slot+1}',
+                'date': datetime.today().strftime('%Y-%m-%d'),
                 'room': room_info['room_name'],
                 'enrolled_students': enrolled
             })
@@ -889,7 +934,7 @@ class AdminSection:
         if self._save_final_schedule(schedule):
             print("📄 Schedule saved to final_schedule.csv")
     
-    def _schedule_genetic_algorithm(self, courses_df, students_df, rooms_df):
+    def _schedule_genetic_algorithm(self, courses_df, students_df, rooms_df, constraints):
         """Schedule using genetic algorithm"""
         print("\n🧬 Using Genetic Algorithm...")
         
@@ -1008,7 +1053,7 @@ class AdminSection:
                 'course_code': course,
                 'course_name': course_info['course_name'],
                 'instructor': course_info['instructor'],
-                'time_slot': f'Slot-{time_slot+1}',
+                'date': datetime.today().strftime('%Y-%m-%d'),
                 'room': room_info['room_name'],
                 'enrolled_students': enrolled
             })
@@ -1038,75 +1083,88 @@ class AdminSection:
         
         return conflicts
     
-    def _create_schedule_from_coloring(self, coloring, courses_df, students_df, rooms_df):
-        """Create schedule from graph coloring result"""
+    def _create_schedule_from_coloring(self, coloring, courses_df, students_df, rooms_df, constraints):
+        """Create schedule from graph coloring result, using actual dates"""
         schedule = []
         student_counts = students_df.groupby('course_code').size().to_dict()
-        
-        # Sort rooms by capacity (largest first)
         sorted_rooms = rooms_df.sort_values('capacity', ascending=False)
+
+        # --- Map time slots to dates ---
+        start_date = constraints.get('start_date')
+        max_exams_per_day = constraints.get('max_exams_per_day') or 2
+        total_slots = max(coloring.values()) + 1
+        # Calculate date for each slot (fill days with up to max_exams_per_day)
+        slot_to_date = {}
+        slot = 0
+        day_offset = 0
+        exams_on_day = 0
+        for s in range(total_slots):
+            if exams_on_day >= max_exams_per_day:
+                day_offset += 1
+                exams_on_day = 0
+            slot_to_date[s] = start_date + timedelta(days=day_offset)
+            exams_on_day += 1
         
+        prof_absences = constraints.get('professor_absences', {})
         for course_code, color in coloring.items():
             course_info = courses_df[courses_df['course_code'] == course_code].iloc[0]
+            instructor = course_info['instructor']
             enrolled = student_counts.get(course_code, 0)
-            
-            # Find suitable room
-            suitable_room = sorted_rooms.iloc[0]  # Default to largest room
-            for _, room in sorted_rooms.iterrows():
-                if room['capacity'] >= enrolled:
-                    suitable_room = room
-                    break
-            
+            suitable_room = sorted_rooms.iloc[0]
+            exam_date = slot_to_date[color]
+            # Check for professor absence
+            abs_dates = set(prof_absences.get(instructor, []))
+            while exam_date.strftime('%Y-%m-%d') in abs_dates:
+                # Move to next day
+                exam_date += timedelta(days=1)
+            # Now assign
             schedule.append({
                 'course_code': course_code,
                 'course_name': course_info['course_name'],
-                'instructor': course_info['instructor'],
-                'time_slot': f'Slot-{color + 1}',
+                'instructor': instructor,
+                'date': exam_date.strftime('%Y-%m-%d'),
                 'room': suitable_room['room_name'],
                 'enrolled_students': enrolled
             })
-        
         return schedule
     
     def _save_final_schedule(self, schedule):
         """Save final schedule to CSV"""
         try:
             schedule_df = pd.DataFrame(schedule)
-            schedule_df = schedule_df.sort_values('time_slot')
+            if 'date' in schedule_df.columns:
+                schedule_df = schedule_df.sort_values('date')
             return self.csv_manager.save_csv(schedule_df, 'final_schedule.csv')
         except Exception as e:
             print(f"❌ Error saving schedule: {e}")
             return False
     
     def view_current_schedule(self):
-        """Display the current exam schedule"""
+        """Display the current exam schedule with actual dates"""
         schedule_df = self.csv_manager.load_csv('final_schedule.csv')
-        
         if schedule_df.empty:
             print("📋 No exam schedule available. Please run scheduling first.")
             return
-        
+        if 'date' not in schedule_df.columns:
+            print("❌ The current schedule file does not have a 'date' column. Please re-run the scheduler to generate a new schedule.")
+            return
         print("\n📅 CURRENT EXAM SCHEDULE")
         print("=" * 100)
-        print(f"{'Course':<10} {'Course Name':<25} {'Instructor':<20} {'Time Slot':<12} {'Room':<15} {'Students':<8}")
+        print(f"{'Course':<10} {'Course Name':<25} {'Instructor':<20} {'Date':<12} {'Room':<15} {'Students':<8}")
         print("-" * 100)
-        
         for _, exam in schedule_df.iterrows():
-            instructor = exam['instructor'] if pd.notna(exam['instructor']) else "TBA"
-            students = exam['enrolled_students'] if pd.notna(exam['enrolled_students']) else "0"
-            
+            instructor = exam['instructor'] if not pd.isna(exam['instructor']) else "TBA"
+            students = exam['enrolled_students'] if not pd.isna(exam['enrolled_students']) else "0"
             print(f"{exam['course_code']:<10} {exam['course_name'][:24]:<25} "
-                  f"{instructor[:19]:<20} {exam['time_slot']:<12} "
+                  f"{instructor[:19]:<20} {exam['date']:<12} "
                   f"{exam['room'][:14]:<15} {students:<8}")
-        
         print("-" * 100)
         print(f"Total scheduled exams: {len(schedule_df)}")
-        
-        # Show time slot summary
-        print(f"\n⏰ Time Slot Summary:")
-        slot_summary = schedule_df.groupby('time_slot').size().sort_index()
-        for slot, count in slot_summary.items():
-            print(f"   {slot}: {count} exams")
+        # Show date summary
+        print(f"\n📅 Date Summary:")
+        date_summary = schedule_df.groupby('date').size().sort_index()
+        for date, count in date_summary.items():
+            print(f"   {date}: {count} exams")
     
     def system_statistics(self):
         """Display comprehensive system statistics"""
@@ -1157,7 +1215,7 @@ class AdminSection:
         if not schedule_df.empty:
             # Schedule statistics
             print(f"\n📅 Schedule Details:")
-            time_slots_used = schedule_df['time_slot'].nunique()
+            time_slots_used = schedule_df['date'].nunique()
             rooms_used = schedule_df['room'].nunique()
             print(f"   Time Slots Used: {time_slots_used}")
             print(f"   Rooms Used: {rooms_used}")
