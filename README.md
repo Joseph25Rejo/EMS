@@ -87,18 +87,6 @@ A modern, role-based web application for seamless university exam scheduling. Bu
 
 ---
 
-## ✨ Screenshots
-
-> _Add screenshots of the landing page, dashboards, and scheduling results here for a better overview._
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please open issues or pull requests for improvements, bug fixes, or new features.
-
----
-
 ## 📄 License
 
 This project is licensed under the MIT License.
