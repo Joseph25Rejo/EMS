@@ -4,7 +4,7 @@ A modern, role-based web application for seamless university exam scheduling. Bu
 
 ---
 
-## 🚀 Features
+## 🚀 Feature
 
 - **Role-Based Access:** Tailored dashboards and permissions for Students, Professors, and Admins.
 - **Smart Scheduling:** Generate conflict-free exam timetables using advanced algorithms (Graph Coloring, Simulated Annealing, Genetic Algorithm).
@@ -14,7 +14,7 @@ A modern, role-based web application for seamless university exam scheduling. Bu
 
 ---
 
-## 👤 User Roles
+## 👤 User R
 
 - **Student:**
   - Enroll in courses
