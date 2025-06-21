@@ -104,12 +104,21 @@ export default function LoginPage() {
       }
 
       const data = await response.json();
+      console.log('Login response:', data); // Debug log
 
-      // Store user data in localStorage
+      // Store user data in localStorage - store the user object which includes role
       localStorage.setItem('user', JSON.stringify(data.user));
 
-      // Successful login
-      router.push('/student_dashboard');
+      // Log what we're storing
+      console.log('Storing in localStorage:', data.user);
+
+      if(formData.role === 'student'){
+        router.push('/student_dashboard');
+      }else if(formData.role === 'teacher'){
+        router.push('/teacher_dashboard');
+      }else if(formData.role === 'admin'){
+        router.push('/admin_dashboard');
+      }
     } catch (err) {
       console.error('Login error:', err);
       setError(err instanceof Error ? err.message : 'Invalid credentials');

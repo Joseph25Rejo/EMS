@@ -92,6 +92,8 @@ def make_json_serializable(obj):
         return str(obj)
     elif isinstance(obj, datetime):
         return obj.isoformat()
+    elif obj != obj:  # Python's way of checking for NaN
+        return None
     else:
         return obj
 
@@ -454,36 +456,212 @@ def login():
     password = data.get('Password')
     if not role or not usn or not password:
         return jsonify({'error': 'Missing role, USN/UserID, or password'}), 400
+    
     # Connect to auth db
     auth_client = MongoClient(os.getenv('MONGODB_URI'))
     auth_db = auth_client['auth']
+    
     if role == 'student':
         collection = auth_db['studentauth']
         user = collection.find_one({'USN': usn, 'Password': password})
         if user:
-            user['student_id'] = user['USN']
-            user.pop('password', None)
-            return jsonify({'message': 'Login successful', 'user': make_json_serializable(user)})
+            user_data = {
+                'USN': user['USN'],
+                'name': user.get('name', user['USN']),
+                'role': 'student'
+            }
+            return jsonify({'message': 'Login successful', 'user': make_json_serializable(user_data)})
         else:
             return jsonify({'error': 'Invalid USN/UserID or password'}), 401
+            
     elif role == 'teacher':
         collection = auth_db['teacher_auth']
         user = collection.find_one({'USN': usn, 'Password': password})
         if user:
-            user.pop('password', None)
-            return jsonify({'message': 'Login successful', 'user': make_json_serializable(user)})
+            user_data = {
+                'USN': user['USN'],
+                'name': user.get('Name', user['USN']),
+                'role': 'teacher'
+            }
+            return jsonify({'message': 'Login successful', 'user': make_json_serializable(user_data)})
         else:
             return jsonify({'error': 'Invalid USN/UserID or password'}), 401
+            
     elif role == 'admin':
         collection = auth_db['adminauth']
         user = collection.find_one({'UserID': usn, 'Password': password})
         if user:
-            user.pop('password', None)
-            return jsonify({'message': 'Login successful', 'user': make_json_serializable(user)})
+            user_data = {
+                'USN': user['UserID'],
+                'name': user.get('name', user['UserID']),
+                'role': 'admin'
+            }
+            return jsonify({'message': 'Login successful', 'user': make_json_serializable(user_data)})
         else:
             return jsonify({'error': 'Invalid USN/UserID or password'}), 401
     else:
         return jsonify({'error': 'Invalid role'}), 400
+
+# Teacher endpoints
+@app.route('/api/teachers/<teacher_id>/courses', methods=['GET'])
+@handle_errors
+def get_teacher_courses(teacher_id):
+    """Get all courses taught by a specific teacher"""
+    # Try to find courses by either USN or full name
+    courses = list(collections['courses'].find({
+        '$or': [
+            {'instructor': teacher_id},  # Match by USN
+            {'instructor': {'$regex': f'^{teacher_id}$', '$options': 'i'}}  # Case-insensitive match by name
+        ]
+    }))
+    if not courses:
+        return jsonify([])
+    return jsonify([make_json_serializable(course) for course in courses])
+
+@app.route('/api/teachers/courses/<course_code>/assign', methods=['POST'])
+@handle_errors
+def assign_teacher_to_course(course_code):
+    """Assign a teacher to an existing course"""
+    data = request.json
+    if not data or 'teacher_id' not in data:
+        return jsonify({'error': 'Teacher ID is required'}), 400
+
+    # Check if course exists
+    course = collections['courses'].find_one({'course_code': course_code})
+    if not course:
+        return jsonify({'error': 'Course not found'}), 404
+
+    # Update course with new teacher
+    result = collections['courses'].update_one(
+        {'course_code': course_code},
+        {'$set': {'instructor': data['teacher_id']}}
+    )
+
+    if result.modified_count == 0:
+        return jsonify({'error': 'Failed to assign teacher to course'}), 500
+
+    return jsonify({'message': 'Teacher assigned successfully'})
+
+@app.route('/api/teachers/courses', methods=['POST'])
+@handle_errors
+def create_teacher_course():
+    """Create a new course with teacher assignment"""
+    data = request.json
+    required_fields = ['course_code', 'course_name', 'instructor', 'expected_students']
+    
+    if not isinstance(data, dict) or not all(field in data for field in required_fields):
+        return jsonify({'error': 'Missing required fields'}), 400
+    
+    # Validate data types
+    try:
+        data['expected_students'] = int(data['expected_students'])
+        if data['expected_students'] <= 0:
+            raise ValueError("Expected students must be positive")
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+
+    # Check if course code already exists
+    if collections['courses'].find_one({'course_code': data['course_code']}):
+        return jsonify({'error': 'Course code already exists'}), 409
+    
+    # Insert the new course
+    course_id = collections['courses'].insert_one(data).inserted_id
+    return jsonify({
+        'message': 'Course created successfully',
+        'id': str(course_id),
+        'course': make_json_serializable(data)
+    }), 201
+
+@app.route('/api/teachers/<teacher_id>/invigilations/upcoming', methods=['GET'])
+@handle_errors
+def get_teacher_upcoming_invigilations(teacher_id):
+    """Get upcoming invigilation duties for a teacher"""
+    current_date = datetime.now()
+    
+    # Get all invigilation duties for the teacher that are in the future
+    invigilations = list(collections['final_schedule'].find({
+        'instructor': {'$regex': f'^{teacher_id}$', '$options': 'i'},  # Case-insensitive exact match
+        'date': {'$gte': current_date.strftime('%Y-%m-%d')}
+    }).sort('date', 1))  # Sort by date ascending
+
+    print(f"Found {len(invigilations)} upcoming invigilations for {teacher_id}")  # Debug log
+    return jsonify([make_json_serializable(duty) for duty in invigilations])
+
+@app.route('/api/teachers/<teacher_id>/invigilations/history', methods=['GET'])
+@handle_errors
+def get_teacher_invigilation_history(teacher_id):
+    """Get past invigilation duties for a teacher"""
+    current_date = datetime.now()
+    
+    # Get all invigilation duties for the teacher that are in the past
+    invigilations = list(collections['final_schedule'].find({
+        'instructor': {'$regex': f'^{teacher_id}$', '$options': 'i'},  # Case-insensitive exact match
+        'date': {'$lt': current_date.strftime('%Y-%m-%d')}
+    }).sort('date', -1))  # Sort by date descending
+
+    print(f"Found {len(invigilations)} past invigilations for {teacher_id}")  # Debug log
+    return jsonify([make_json_serializable(duty) for duty in invigilations])
+
+@app.route('/api/teachers/courses/<course_code>', methods=['GET'])
+@handle_errors
+def get_course_details(course_code):
+    """Get detailed information about a specific course"""
+    course = collections['courses'].find_one({'course_code': course_code})
+    if not course:
+        return jsonify({'error': 'Course not found'}), 404
+
+    # Get additional statistics
+    enrolled_students = collections['students'].count_documents({'course_code': course_code})
+    
+    # Get exam schedule if exists
+    exam_schedule = collections['final_schedule'].find_one({'course_code': course_code})
+    
+    # Convert MongoDB document to dictionary and add additional fields
+    base_details = make_json_serializable(course)
+    if not isinstance(base_details, dict):
+        base_details = {}
+    base_details.update({
+        'enrolled_students': enrolled_students,
+        'exam_schedule': make_json_serializable(exam_schedule) if exam_schedule else None
+    })
+
+    return jsonify(base_details)
+
+@app.route('/api/teachers/courses/<course_code>', methods=['PUT'])
+@handle_errors
+def update_course_details(course_code):
+    """Update course information"""
+    data = request.json
+    if not data:
+        return jsonify({'error': 'No update data provided'}), 400
+
+    # Validate expected_students if provided
+    if 'expected_students' in data:
+        try:
+            data['expected_students'] = int(data['expected_students'])
+            if data['expected_students'] <= 0:
+                raise ValueError
+        except ValueError:
+            return jsonify({'error': 'Expected students must be a positive number'}), 400
+
+    # Update the course
+    result = collections['courses'].update_one(
+        {'course_code': course_code},
+        {'$set': data}
+    )
+
+    if result.matched_count == 0:
+        return jsonify({'error': 'Course not found'}), 404
+
+    if result.modified_count == 0:
+        return jsonify({'message': 'No changes made to the course'})
+
+    # Get updated course details
+    updated_course = collections['courses'].find_one({'course_code': course_code})
+    return jsonify({
+        'message': 'Course updated successfully',
+        'course': make_json_serializable(updated_course)
+    })
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000) 
