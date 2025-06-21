@@ -816,7 +816,7 @@ class AdminSection:
         coloring = nx.greedy_color(G, strategy='largest_first')
         # Generate schedule
         schedule = self._create_schedule_from_coloring(coloring, courses_df, students_df, rooms_df, constraints)
-
+        
         # --- BENCH ASSIGNMENT LOGIC ---
         # Connect to MongoDB Atlas and fetch students from auth.studentauth
         try:
@@ -1300,8 +1300,8 @@ class AdminSection:
                       f"{exam['session']:<10} {exam['room'][:14]:<15} {students:<8}")
             else:
                 print(f"{exam['course_code']:<10} {exam['course_name'][:24]:<25} "
-                      f"{instructor[:19]:<20} {exam['date']:<12} "
-                      f"{exam['room'][:14]:<15} {students:<8}")
+                    f"{instructor[:19]:<20} {exam['date']:<12} "
+                    f"{exam['room'][:14]:<15} {students:<8}")
         print("-" * 120)
         print(f"Total scheduled exams: {len(schedule_df)}")
         # Show date summary

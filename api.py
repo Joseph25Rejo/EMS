@@ -357,46 +357,39 @@ def get_statistics():
 @app.route('/api/students/<student_id>/hallticket', methods=['GET'])
 @handle_errors
 def get_student_hallticket(student_id):
-    exams = list(collections['final_schedule'].find())
+    # First get the student's enrolled courses
     students = list(collections['students'].find({'student_id': student_id}))
-    if students and exams:
-        enrolled_courses = [s['course_code'] for s in students]
-        hallticket = [
-            {
-                'course_code': exam['course_code'],
+    if not students:
+        return jsonify([])
+
+    # Get enrolled course codes
+    enrolled_courses = [s['course_code'] for s in students]
+    
+    # Get the latest schedule
+    latest_schedule = collections['final_schedule'].find_one(
+        sort=[('created_at', -1)]  # Get the most recent schedule
+    )
+    
+    if not latest_schedule or 'schedule' not in latest_schedule:
+        return jsonify([])
+    
+    # Extract exam schedule for enrolled courses
+    schedule = latest_schedule['schedule']
+    if not isinstance(schedule, list):
+        return jsonify([])
+        
+    hallticket = []
+    for exam in schedule:
+        if isinstance(exam, dict) and exam.get('course_code') in enrolled_courses:
+            hallticket.append({
+                'course_code': exam.get('course_code', ''),
                 'course_name': exam.get('course_name', ''),
                 'date': exam.get('date', ''),
                 'room': exam.get('room', ''),
                 'session': exam.get('session', '')
-            }
-            for exam in exams if exam['course_code'] in enrolled_courses
-        ]
-        return jsonify(hallticket)
-    # Fallback: Try to load from CSVs using app.py logic
-    try:
-        from app import CSVManager
-        csv_manager = CSVManager()
-        students_df = csv_manager.load_csv('students.csv')
-        schedule_df = csv_manager.load_csv('final_schedule.csv')
-        courses_df = csv_manager.load_csv('courses.csv')
-        my_enrollments = students_df[students_df['student_id'] == student_id]
-        if my_enrollments.empty or schedule_df.empty:
-            return jsonify([])
-        enrolled_courses = list(my_enrollments['course_code'])
-        my_schedule = schedule_df[schedule_df['course_code'].isin(enrolled_courses)]
-        hallticket = []
-        for _, exam in my_schedule.iterrows():
-            course_name = exam['course_name'] if 'course_name' in exam else list(courses_df[courses_df['course_code'] == exam['course_code']]['course_name'])[0]
-            hallticket.append({
-                'course_code': exam['course_code'],
-                'course_name': course_name,
-                'date': exam['date'],
-                'room': exam['room'],
-                'session': exam['session'] if 'session' in exam else ''
             })
-        return jsonify(hallticket)
-    except Exception as e:
-        return jsonify({'error': f'Not found in DB or CSV: {str(e)}'}), 404
+    
+    return jsonify(hallticket)
 
 @app.route('/api/teachers/<teacher_name>/invigilations', methods=['GET'])
 @handle_errors

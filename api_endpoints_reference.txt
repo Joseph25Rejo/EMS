@@ -23,6 +23,64 @@ Example Response:
   }
 }
 
+student:
+Body:
+{
+  "role": "student",
+  "USN": "1RV23AI040",
+  "Password": "1RV23AI040JOSEPH"
+}
+Response:
+{
+  "message": "Login successful",
+  "user": {
+    "Name": "JOSEPH REJO MATHEW",
+    "Password": "1RV23AI040JOSEPH",
+    "USN": "1RV23AI040",
+    "_id": "6852dfe10566da15e16728ae",
+    "student_id": "1RV23AI040"
+  }
+}
+
+teacher:
+Body:
+{
+  "role": "teacher",
+  "USN": "AIML01",
+  "Password": "AIML01Somesh"
+}
+Response:
+{
+  "message": "Login successful",
+  "user": {
+    "Name": "Dr. Somesh Nandi",
+    "Password": "AIML01Somesh",
+    "USN": "AIML01",
+    "_id": "6855566fbd29da006412a111",
+    "course_code": "PY106",
+    "course_name": "Python Programming",
+    "expected_students": 27
+  }
+}
+
+Admin:
+Body:
+{
+  "role": "admin",
+  "USN": "AdminRVCE",
+  "Password": "Admin123"
+}
+Response:
+{
+  "message": "Login successful",
+  "user": {
+    "Name": "Admin",
+    "Password": "Admin123",
+    "UserID": "AdminRVCE",
+    "_id": "6852e69eedb21e52e8639778"
+  }
+}
+
 ---
 2. GET ALL COURSES
 ---
@@ -30,13 +88,89 @@ GET /api/courses
 Example Response:
 [
   {
-    "course_code": "CS101",
-    "course_name": "Intro to Programming",
-    "instructor": "Dr. Smith",
-    "expected_students": 45,
-    "_id": "..."
+    "_id": "68556dc8dd5706f3c68fcb4c",
+    "course_code": "PY106",
+    "course_name": "Python Programming",
+    "expected_students": 27,
+    "instructor": "Dr. Somesh Nandi"
   },
-  ...
+  {
+    "_id": "68556dc8dd5706f3c68fcb4d",
+    "course_code": "AI101",
+    "course_name": "Artificial Intelligence",
+    "expected_students": 32,
+    "instructor": "Dr. Vishwardhan"
+  },
+  {
+    "_id": "68556dc8dd5706f3c68fcb4e",
+    "course_code": "DS105",
+    "course_name": "Data Structures",
+    "expected_students": 37,
+    "instructor": "Dr. Rajesh"
+  },
+  {
+    "_id": "68556dc8dd5706f3c68fcb4f",
+    "course_code": "CS102",
+    "course_name": "Computer Systems",
+    "expected_students": 35,
+    "instructor": "Dr. Narshima"
+  },
+  {
+    "_id": "68556dc8dd5706f3c68fcb50",
+    "course_code": "EC104",
+    "course_name": "Embedded Circuits",
+    "expected_students": 35,
+    "instructor": "Dr. VijayLaxmi"
+  },
+  {
+    "_id": "68556dc8dd5706f3c68fcb51",
+    "course_code": "MA103",
+    "course_name": "Mathematics III",
+    "expected_students": 38,
+    "instructor": "Dr. Anupama"
+  },
+  {
+    "_id": "68556dc8dd5706f3c68fcb52",
+    "course_code": "21CS53",
+    "course_name": "Database Management Systems",
+    "expected_students": 30,
+    "instructor": "Dr. Ayesha Khan"
+  },
+  {
+    "_id": "68556dc8dd5706f3c68fcb53",
+    "course_code": "21IS54",
+    "course_name": "Operating Systems",
+    "expected_students": 36,
+    "instructor": "Dr. Nikhil Sinha"
+  },
+  {
+    "_id": "68556dc8dd5706f3c68fcb54",
+    "course_code": "21IS56",
+    "course_name": "Software Engineering",
+    "expected_students": 27,
+    "instructor": "Dr. Rekha Menon"
+  },
+  {
+    "_id": "68556dc8dd5706f3c68fcb55",
+    "course_code": "21CS57",
+    "course_name": "Machine Learning",
+    "expected_students": 35,
+    "instructor": "Dr. Arvind Krishnan"
+  },
+  {
+    "_id": "68556dc8dd5706f3c68fcb56",
+    "course_code": "21IS58",
+    "course_name": "Web Development",
+    "expected_students": 33,
+    "instructor": "Dr. Ramesh Iyer"
+  },
+  {
+    "_id": "68556dc8dd5706f3c68fcb57",
+    "course_code": "21IS59",
+    "course_name": "Cloud Computing",
+    "expected_students": 32,
+    "instructor": "Dr. Suresh Desai"
+  }
 ]
 
 ---
@@ -200,7 +334,7 @@ Example Response:
 ---
 13. GET TEACHER INVIGILATIONS
 ---
-GET /api/teachers/<teacher_name>/invigilations
+GET http://127.0.0.1:5000/api/teachers/Dr.%20Rajesh/invigilations
 Example Response:
 [
   {
