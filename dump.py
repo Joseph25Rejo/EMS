@@ -6,20 +6,9 @@ MONGO_URI = "mongodb+srv://joseph25rejo:exam-management-system@exammanagementsys
 
 # Step 2: Connect to MongoDB
 client = MongoClient(MONGO_URI)
-db = client["exam-scheduling"]
-collection = db["final_schedule"]
+db = client["auth"]
+collection = db["studentauth"]
 
-# Step 3: Delete all documents from the collection
-collection.delete_many({})
-print("✅ Existing data deleted from 'exam-scheduling.'.")
-
-# Step 4: Read the CSV file
-df = pd.read_csv("final_schedule.csv")
-
-# Step 5: Convert DataFrame to dictionary and upload
-records = df.to_dict(orient="records")
-if records:
-    collection.insert_many(records)
-    print(f"✅ Inserted {len(records)} documents into 'final_schedule'.")
-else:
-    print("⚠️ No records found in CSV to upload.")
+distinct_students = db.students.distinct('USN')
+distinct_count = len([id for id in distinct_students if id]) 
+print(f"Distinct student count: {distinct_count}")

@@ -1,4 +1,5 @@
-'use client'
+'use client';
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -60,16 +61,23 @@ import {
   FileImage,
   FileType2
 } from 'lucide-react';
-import type { GState } from 'jspdf';
 
+// Interface Definitions
 interface UserData {
   USN: string;
-  name: string;
+  Name: string;
   student_id: string;
   _id: string;
+  email?: string;
+  phone?: string;
+  department?: string;
+  semester?: number;
+  section?: string;
+  batch?: string;
 }
 
 interface Course {
+  _id: string;
   course_code: string;
   course_name: string;
   instructor: string;
@@ -94,7 +102,6 @@ export default function DashboardPage() {
   const [activeSection, setActiveSection] = useState('overview');
   const [sectionLoading, setSectionLoading] = useState(false);
   const [logoBase64, setLogoBase64] = useState<string>('');
-  const [cornerLogoBase64, setCornerLogoBase64] = useState<string>('');
 
   useEffect(() => {
     // Get user data from localStorage
@@ -119,11 +126,10 @@ export default function DashboardPage() {
   }, [router]);
 
   useEffect(() => {
-    // Load and convert logos to base64 on component mount
-    const loadLogos = async () => {
+    // Load and convert logo to base64 on component mount
+    const loadLogo = async () => {
       try {
-        // Load main logo for watermark
-        const response = await fetch('/images/RVCE_logo.png');
+        const response = await fetch('/RVCE_logo.png');
         const blob = await response.blob();
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -131,34 +137,24 @@ export default function DashboardPage() {
           setLogoBase64(base64data);
         };
         reader.readAsDataURL(blob);
-
-        // Load corner logo (using the same logo)
-        const cornerResponse = await fetch('/images/RVCE_logo.png');
-        const cornerBlob = await cornerResponse.blob();
-        const cornerReader = new FileReader();
-        cornerReader.onloadend = () => {
-          const cornerBase64data = cornerReader.result as string;
-          setCornerLogoBase64(cornerBase64data);
-        };
-        cornerReader.readAsDataURL(cornerBlob);
       } catch (error) {
-        console.error('Error loading logos:', error);
+        console.error('Error loading logo:', error);
       }
     };
-    loadLogos();
+    loadLogo();
   }, []);
 
   const fetchInitialData = async (usn: string) => {
     try {
       // Fetch courses
-      const coursesResponse = await fetch(`/api/students/${usn}/courses`);
+      const coursesResponse = await fetch(/api/students/${usn}/courses);
       if (coursesResponse.ok) {
         const coursesData = await coursesResponse.json();
         setCourses(coursesData);
       }
 
       // Fetch hall ticket (which includes exam schedule)
-      const hallTicketResponse = await fetch(`/api/students/${usn}/hallticket`);
+      const hallTicketResponse = await fetch(/api/students/${usn}/hallticket);
       if (hallTicketResponse.ok) {
         const scheduleData = await hallTicketResponse.json();
         setExamSchedule(scheduleData);
@@ -177,7 +173,7 @@ export default function DashboardPage() {
     { id: 'overview', label: 'Overview', icon: User, color: 'from-blue-500 to-blue-600' },
     { id: 'courses', label: 'My Courses', icon: BookOpen, color: 'from-green-500 to-green-600' },
     { id: 'exams', label: 'Exam Schedule', icon: Calendar, color: 'from-purple-500 to-purple-600' },
-    { id: 'hallticket', label: 'Hall Ticket', icon: FileText, color: 'from-orange-500 to-orange-600' }
+    { id: 'hallticket', label: 'Hall Ticket', icon: FileText, color: 'from-orange-500 to-orange-600' },
   ];
 
   const LoadingSpinner = () => (
@@ -199,20 +195,13 @@ export default function DashboardPage() {
         format: 'a4'
       });
 
-      // Add RVCE logo in top left corner
-      if (cornerLogoBase64) {
-        try {
-          pdf.addImage(cornerLogoBase64, 'PNG', 20, 20, 25, 25);
-        } catch (error) {
-          console.error('Error adding corner logo:', error);
-        }
-      }
-
       // Add watermark if logo is loaded
       if (logoBase64) {
-        const opacity = 0.05; // Reduced opacity to match preview
+        const opacity = 0.1;
         pdf.saveGraphicsState();
-        pdf.setGState(new (pdf as any).GState({ opacity }));
+        // Create a graphics state for opacity
+        const gState = new (pdf as any).GState({ opacity });
+        pdf.setGState(gState);
         try {
           pdf.addImage(logoBase64, 'PNG', 70, 40, 160, 160);
         } catch (error) {
@@ -221,156 +210,100 @@ export default function DashboardPage() {
         pdf.restoreGraphicsState();
       }
 
-      // Add "RVCE" watermark text
-      pdf.setFontSize(60);
-      pdf.setTextColor(200, 200, 200);
-      pdf.setFont('helvetica', 'bold');
-
       // Add header
-      pdf.setFontSize(28);
-      pdf.setTextColor(0, 0, 0);
+      pdf.setFontSize(24);
       pdf.setFont('helvetica', 'bold');
       pdf.text('EXAMINATION HALL TICKET', 148, 30, { align: 'center' });
       
-      pdf.setFontSize(16);
+      pdf.setFontSize(14);
       pdf.setFont('helvetica', 'normal');
       pdf.text('RV College of Engineering', 148, 40, { align: 'center' });
       
-      pdf.setFontSize(14);
+      pdf.setFontSize(12);
       pdf.text('Academic Year 2023-24', 148, 48, { align: 'center' });
 
-      // Add student details in styled boxes
-      // Blue box for student name
-      pdf.setFillColor(239, 246, 255); // bg-blue-50
-      pdf.setDrawColor(219, 234, 254); // border-blue-100
-      pdf.roundedRect(20, 65, 120, 25, 3, 3, 'FD');
-      
-      pdf.setFontSize(12);
-      pdf.setTextColor(71, 85, 105); // text-gray-600
-      pdf.text('Student Name:', 25, 75);
-      pdf.setFontSize(16);
-      pdf.setTextColor(0, 0, 0);
+      // Add student details
+      pdf.setFontSize(11);
       pdf.setFont('helvetica', 'bold');
-      pdf.text(userData.name, 25, 85);
-
-      // Purple box for USN
-      pdf.setFillColor(245, 243, 255); // bg-purple-50
-      pdf.setDrawColor(237, 233, 254); // border-purple-100
-      pdf.roundedRect(150, 65, 120, 25, 3, 3, 'FD');
-      
-      pdf.setFontSize(12);
-      pdf.setTextColor(71, 85, 105); // text-gray-600
-      pdf.text('USN:', 155, 75);
-      pdf.setFontSize(16);
-      pdf.setTextColor(0, 0, 0);
-      pdf.text(userData.USN, 155, 85);
-
-      // Add table
-      let y = 105;
-      
-      // Style for table
-      pdf.setLineWidth(0.2);
-      pdf.setDrawColor(229, 231, 235); // border-gray-200
-      
-      // Draw table header background
-      pdf.setFillColor(249, 250, 251); // bg-gray-50
-      pdf.rect(20, y-5, 257, 12, 'F');
-      
-      // Draw outer table border with rounded corners
-      pdf.setDrawColor(229, 231, 235);
-      pdf.roundedRect(20, y-5, 257, (examSchedule.length * 12) + 17, 2, 2, 'S');
+      pdf.text('Student Details:', 20, 65);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text(Name: ${userData.Name}, 20, 73);
+      pdf.text(USN: ${userData.USN}, 20, 81);
 
       // Add table headers
       const headers = ['Course', 'Course Code', 'Date', 'Session', 'Room', 'Signature'];
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(11);
-      pdf.setTextColor(17, 24, 39); // text-gray-900
+      let y = 95;
       
-      const colWidths = [60, 35, 40, 40, 35, 47];
+      // Style for table
+      pdf.setLineWidth(0.2);
+      pdf.setDrawColor(0);
+      
+      // Draw table header background
+      pdf.setFillColor(240, 240, 240);
+      pdf.rect(20, y-5, 257, 10, 'F');
+      
+      // Draw outer table border
+      pdf.rect(20, y-5, 257, (examSchedule.length * 12) + 15);
+
+      // Draw headers
+      pdf.setFont('helvetica', 'bold');
+      const colWidths = [60, 30, 40, 40, 40, 47];
       let x = 20;
       headers.forEach((header, index) => {
-        pdf.text(header, x + 5, y);
+        pdf.text(header, x + 3, y);
         x += colWidths[index];
         // Draw vertical lines
-        pdf.line(x, y-5, x, y + (examSchedule.length * 12) + 12);
+        pdf.line(x, y-5, x, y + 10 + (examSchedule.length * 12));
       });
       
       // Draw horizontal line after headers
-      y += 7;
+      y += 5;
       pdf.line(20, y, 277, y);
 
       // Add exam data
+      y += 8;
       pdf.setFont('helvetica', 'normal');
-      examSchedule.forEach((exam, index) => {
-        y += 10;
+      examSchedule.forEach((exam) => {
         x = 20;
-        
-        // Alternate row background
-        if (index % 2 === 0) {
-          pdf.setFillColor(249, 250, 251); // bg-gray-50
-          pdf.rect(x, y-5, 257, 10, 'F');
-        }
-
         // Course name
-        pdf.setTextColor(17, 24, 39); // text-gray-900
-        pdf.setFont('helvetica', 'bold');
-        pdf.text(exam.course_name, x + 5, y);
+        pdf.text(exam.course_name, x + 3, y);
         x += colWidths[0];
         
-        // Course code with badge style
-        pdf.setFillColor(239, 246, 255); // bg-blue-50
-        pdf.setTextColor(30, 64, 175); // text-blue-800
-        pdf.roundedRect(x + 2, y-4, 30, 6, 1, 1, 'F');
-        pdf.setFontSize(9);
-        pdf.text(exam.course_code, x + 4, y);
-        pdf.setFontSize(11);
+        // Course code
+        pdf.text(exam.course_code, x + 3, y);
         x += colWidths[1];
         
-        // Other details
-        pdf.setTextColor(17, 24, 39);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(exam.date, x + 5, y);
+        // Date
+        pdf.text(exam.date, x + 3, y);
         x += colWidths[2];
         
-        pdf.text(exam.session, x + 5, y);
+        // Session
+        pdf.text(exam.session, x + 3, y);
         x += colWidths[3];
         
-        pdf.text(exam.room, x + 5, y);
+        // Room
+        pdf.text(exam.room, x + 3, y);
         
-        // Draw horizontal line after each row
-        pdf.setDrawColor(229, 231, 235);
-        y += 5;
-        pdf.line(20, y, 277, y);
+        y += 12;
+        pdf.line(20, y-4, 277, y-4);
       });
 
-      // Add note in a yellow box
-      y += 15;
-      pdf.setFillColor(254, 252, 232); // bg-yellow-50
-      pdf.setDrawColor(254, 249, 195); // border-yellow-200
-      pdf.roundedRect(20, y, 180, 20, 2, 2, 'FD');
-      
+      // Add note
+      y += 10;
       pdf.setFontSize(10);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(17, 24, 39);
-      pdf.text('Important Note:', 25, y + 7);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(71, 85, 105);
-      pdf.text('This hall ticket must be presented at the examination center along with a valid photo ID card.', 25, y + 15);
+      pdf.text('Note: This hall ticket must be presented at the examination center along with a valid ID.', 20, y);
 
-      // Add signature line
-      pdf.setDrawColor(17, 24, 39);
-      pdf.setLineWidth(0.5);
-      pdf.line(220, y + 15, 270, y + 15);
+      // Add signature lines
+      y += 20;
+      pdf.line(20, y, 80, y);
+      pdf.text('Student Signature', 35, y + 5);
+      
+      pdf.line(220, y, 270, y);
       pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(17, 24, 39);
-      pdf.text('Principal', 235, y + 20);
-      pdf.setFontSize(9);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(71, 85, 105);
-      pdf.text('RV College of Engineering', 227, y + 25);
+      pdf.text('Principal', 235, y + 5);
 
       // Save PDF
-      pdf.save(`hall_ticket_${userData.USN}.pdf`);
+      pdf.save(hall_ticket_${userData.USN}.pdf);
 
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -394,7 +327,7 @@ export default function DashboardPage() {
       <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 rounded-2xl p-8 text-white shadow-2xl">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-bold mb-2">Welcome back, {userData.name}!</h2>
+            <h2 className="text-3xl font-bold mb-2">Welcome back, {userData.Name}!</h2>
             <p className="text-blue-100 text-lg">Ready to excel in your academic journey?</p>
           </div>
           <div className="hidden md:block">
@@ -467,7 +400,7 @@ export default function DashboardPage() {
               </div>
               <div>
                 <p className="text-gray-600 text-sm font-medium">Full Name</p>
-                <p className="text-xl font-bold text-gray-900">{userData.name}</p>
+                <p className="text-xl font-bold text-gray-900">{userData.Name}</p>
               </div>
             </div>
           </div>
@@ -636,7 +569,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
             <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
               <p className="text-gray-600 font-medium mb-1">Student Name:</p>
-              <p className="text-xl font-bold text-gray-900">{userData.name}</p>
+              <p className="text-xl font-bold text-gray-900">{userData.Name}</p>
             </div>
             <div className="bg-purple-50 p-6 rounded-xl border border-purple-100">
               <p className="text-gray-600 font-medium mb-1">USN:</p>
@@ -701,7 +634,7 @@ export default function DashboardPage() {
         <motion.button
           whileTap={{ scale: 0.95 }}
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="p-3 rounded-xl shadow-lg border border-gray-200"
+          className="p-3 rounded-xl bg-white shadow-lg border border-gray-200"
         >
           {isSidebarOpen ? (
             <X className="w-6 h-6 text-gray-700" />
@@ -725,7 +658,7 @@ export default function DashboardPage() {
             <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
               <User className="w-10 h-10 text-white" />
             </div>
-            <h2 className="text-xl font-bold text-gray-900">{userData.name}</h2>
+            <h2 className="text-xl font-bold text-gray-900">{userData.Name}</h2>
             <p className="text-sm text-gray-600 mt-1 bg-gray-100 px-3 py-1 rounded-full inline-block">
               {userData.USN}
             </p>
@@ -741,103 +674,103 @@ export default function DashboardPage() {
                 onClick={() => setActiveSection(item.id)}
                 className={`w-full flex items-center space-x-4 px-5 py-4 rounded-xl transition-all duration-200 ${
                   activeSection === item.id
-                    ? `bg-gradient-to-r ${item.color} text-white shadow-lg`
-                    : 'hover:bg-gray-100/50 text-gray-700'
+                    ? bg-gradient-to-r ${item.color} text-white shadow-lg
+                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                 }`}
               >
-                <item.icon className={`w-6 h-6 ${activeSection === item.id ? 'text-white' : 'text-gray-500'}`} />
+                <item.icon className={w-6 h-6 ${activeSection === item.id ? 'text-white' : 'text-gray-500'}} />
                 <span className="font-medium">{item.label}</span>
               </motion.button>
             ))}
           </nav>
 
-          {/* Logout Button */}
-          <div className="mt-auto pt-8">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleLogout}
-              className="w-full flex items-center space-x-4 px-5 py-4 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition-all duration-200 border border-red-200"
-            >
-              <LogOut className="w-6 h-6" />
-              <span className="font-medium">Logout</span>
-            </motion.button>
-          </div>
-        </div>
-      </motion.div>
+{/* Logout Button */}
+<div className="mt-auto pt-8">
+  <motion.button
+    whileHover={{ scale: 1.02 }}
+    whileTap={{ scale: 0.98 }}
+    onClick={handleLogout}
+    className="w-full flex items-center space-x-4 px-5 py-4 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition-all duration-200 border border-red-200"
+  >
+    <LogOut className="w-6 h-6" />
+    <span className="font-medium">Logout</span>
+  </motion.button>
+</div>
+</div>
+</motion.div>
 
-      {/* Main Content */}
-      <div className={`transition-all duration-300 ${isSidebarOpen ? 'lg:ml-72' : 'lg:ml-0'}`}>
-        <div className="p-6 lg:p-8 pt-20 lg:pt-8">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                {navigationItems.find(item => item.id === activeSection)?.label || 'Dashboard'}
-              </h1>
-              <p className="text-gray-600 mt-1">
-                {activeSection === 'overview' && 'Welcome to your student portal'}
-                {activeSection === 'courses' && 'Manage your enrolled courses'}
-                {activeSection === 'exams' && 'View your examination schedule'}
-                {activeSection === 'hallticket' && 'Download your hall ticket'}
-              </p>
-            </div>
-            
-            {/* Quick Actions */}
-            <div className="hidden md:flex items-center space-x-4">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="p-3 rounded-xl bg-white shadow-lg border border-gray-200 hover:shadow-xl transition-all"
-              >
-                <Bell className="w-5 h-5 text-gray-600" />
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="p-3 rounded-xl bg-white shadow-lg border border-gray-200 hover:shadow-xl transition-all"
-              >
-                <Settings className="w-5 h-5 text-gray-600" />
-              </motion.button>
-            </div>
-          </div>
+{/* Main Content */}
+<div className={transition-all duration-300 ${isSidebarOpen ? 'lg:ml-72' : 'lg:ml-0'}}>
+<div className="p-6 lg:p-8 pt-20 lg:pt-8">
+{/* Header */}
+<div className="flex items-center justify-between mb-8">
+  <div>
+    <h1 className="text-3xl font-bold text-gray-900">
+      {navigationItems.find(item => item.id === activeSection)?.label || 'Dashboard'}
+    </h1>
+    <p className="text-gray-600 mt-1">
+      {activeSection === 'overview' && 'Welcome to your student portal'}
+      {activeSection === 'courses' && 'Manage your enrolled courses'}
+      {activeSection === 'exams' && 'View your examination schedule'}
+      {activeSection === 'hallticket' && 'Download your hall ticket'}
+    </p>
+  </div>
+  
+  {/* Quick Actions */}
+  <div className="hidden md:flex items-center space-x-4">
+    <motion.button
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      className="p-3 rounded-xl bg-white shadow-lg border border-gray-200 hover:shadow-xl transition-all"
+    >
+      <Bell className="w-5 h-5 text-gray-600" />
+    </motion.button>
+    <motion.button
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      className="p-3 rounded-xl bg-white shadow-lg border border-gray-200 hover:shadow-xl transition-all"
+    >
+      <Settings className="w-5 h-5 text-gray-600" />
+    </motion.button>
+  </div>
+</div>
 
-          {/* Content Area */}
-          <motion.div
-            key={activeSection}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            {sectionLoading ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="text-center">
-                  <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
-                  <p className="text-gray-600">Loading...</p>
-                </div>
-              </div>
-            ) : (
-              <>
-                {activeSection === 'overview' && renderOverview()}
-                {activeSection === 'courses' && renderCourses()}
-                {activeSection === 'exams' && renderExamSchedule()}
-                {activeSection === 'hallticket' && renderHallTicket()}
-              </>
-            )}
-          </motion.div>
-        </div>
+{/* Content Area */}
+<motion.div
+  key={activeSection}
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 0.3 }}
+>
+  {sectionLoading ? (
+    <div className="flex items-center justify-center py-20">
+      <div className="text-center">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+        <p className="text-gray-600">Loading...</p>
       </div>
-
-      {/* Mobile Overlay */}
-      {isSidebarOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={() => setIsSidebarOpen(false)}
-          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
-        />
-      )}
     </div>
-  );
-} 
+  ) : (
+    <>
+      {activeSection === 'overview' && renderOverview()}
+      {activeSection === 'courses' && renderCourses()}
+      {activeSection === 'exams' && renderExamSchedule()}
+      {activeSection === 'hallticket' && renderHallTicket()}
+    </>
+  )}
+</motion.div>
+</div>
+</div>
+
+{/* Mobile Overlay */}
+{isSidebarOpen && (
+<motion.div
+initial={{ opacity: 0 }}
+animate={{ opacity: 1 }}
+exit={{ opacity: 0 }}
+onClick={() => setIsSidebarOpen(false)}
+className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
+/>
+)}
+</div>
+);
+}

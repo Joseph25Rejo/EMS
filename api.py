@@ -172,7 +172,12 @@ def enroll_student():
     }):
         return jsonify({'error': 'Student already enrolled in this course'}), 409
     
-    enrollment_id = collections['students'].insert_one(data).inserted_id
+    # Ensure consistent name field
+    enrollment_data = data.copy()
+    enrollment_data['Name'] = data['name']  # Store as 'Name' for consistency
+    del enrollment_data['name']  # Remove lowercase version
+    
+    enrollment_id = collections['students'].insert_one(enrollment_data).inserted_id
     return jsonify({'message': 'Enrollment successful', 'id': str(enrollment_id)}), 201
 
 @app.route('/api/students/<student_id>/courses', methods=['GET'])
@@ -529,7 +534,7 @@ def login():
         if user:
             user_data = {
                 'USN': user['USN'],
-                'name': user.get('name', user['USN']),
+                'name': user.get('Name') or user.get('name') or user['USN'],  # Try both Name and name fields
                 'role': 'student'
             }
             return jsonify({'message': 'Login successful', 'user': make_json_serializable(user_data)})
