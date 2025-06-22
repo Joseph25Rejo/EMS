@@ -1,16 +1,16 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, redirect
 from flask_cors import CORS
-from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
+from pymongo import MongoClient, ASCENDING
+from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError, DuplicateKeyError
 from bson import ObjectId
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 from functools import wraps
 import os
 from dotenv import load_dotenv
 
-from app import CSVManager
+from app import AdminSection, CSVManager
 
 # Load environment variables
 load_dotenv()
@@ -18,6 +18,14 @@ load_dotenv()
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app)
+
+# URL normalization to handle double slashes
+@app.before_request
+def normalize_url():
+    """Remove multiple slashes from URL path"""
+    if '//' in request.path:
+        path = '/'.join(filter(None, request.path.split('/')))
+        return redirect(f"{request.scheme}://{request.host}/{path}")
 
 # MongoDB Atlas connection
 try:
@@ -47,7 +55,8 @@ try:
         'courses': db['courses'],
         'students': db['students'],
         'rooms': db['rooms'],
-        'final_schedule': db['final_schedule']
+        'final_schedule': db['final_schedule'],
+        'past_schedule': db['past_schedule']
     }
     
     # Create indexes for better performance
@@ -55,6 +64,7 @@ try:
     collections['students'].create_index([('student_id', 1), ('course_code', 1)], unique=True)
     collections['rooms'].create_index('room_id', unique=True)
     collections['final_schedule'].create_index('created_at')
+    collections['past_schedule'].create_index('created_at')
     
 except (ConnectionFailure, ServerSelectionTimeoutError) as e:
     print(f"❌ Failed to connect to MongoDB Atlas: {e}")
@@ -180,6 +190,30 @@ def get_student_courses(student_id):
     
     return jsonify(courses)
 
+@app.route('/api/students/<student_id>/courses/<course_code>', methods=['DELETE'])
+@handle_errors
+def delete_student_from_course(student_id, course_code):
+    """Delete a student from a specific course"""
+    # Check if the student is enrolled in the course
+    enrollment = collections['students'].find_one({
+        'student_id': student_id,
+        'course_code': course_code
+    })
+    
+    if not enrollment:
+        return jsonify({'error': 'Student not enrolled in this course'}), 404
+    
+    # Delete the enrollment
+    result = collections['students'].delete_one({
+        'student_id': student_id,
+        'course_code': course_code
+    })
+    
+    if result.deleted_count == 0:
+        return jsonify({'error': 'Failed to delete enrollment'}), 500
+        
+    return jsonify({'message': 'Student removed from course successfully'}), 200
+
 # Room endpoints
 @app.route('/api/rooms', methods=['GET'])
 @handle_errors
@@ -201,6 +235,35 @@ def create_room():
     
     room_id = collections['rooms'].insert_one(data).inserted_id
     return jsonify({'message': 'Room created successfully', 'id': str(room_id)}), 201
+
+@app.route('/api/rooms/<room_id>', methods=['DELETE'])
+@handle_errors
+def delete_room(room_id):
+    """Delete a room if it's not being used in any current schedules"""
+    # Check if room exists
+    room = collections['rooms'].find_one({'room_id': room_id})
+    if not room:
+        return jsonify({'error': 'Room not found'}), 404
+    
+    # Check if room is being used in current schedule
+    latest_schedule = collections['final_schedule'].find_one(
+        sort=[('created_at', -1)]
+    )
+    
+    if latest_schedule and 'schedule' in latest_schedule:
+        schedule = latest_schedule['schedule']
+        if any(exam.get('room') == room['room_name'] for exam in schedule):
+            return jsonify({
+                'error': 'Cannot delete room as it is being used in the current exam schedule'
+            }), 409
+    
+    # Delete the room
+    result = collections['rooms'].delete_one({'room_id': room_id})
+    
+    if result.deleted_count == 0:
+        return jsonify({'error': 'Failed to delete room'}), 500
+        
+    return jsonify({'message': 'Room deleted successfully'}), 200
 
 # Schedule endpoints
 @app.route('/api/schedules', methods=['GET'])
@@ -234,22 +297,6 @@ def generate_schedule():
     from app import AdminSection
     
     # Create a temporary CSV manager for the scheduling algorithms
-    class SchedulingCSVManager(CSVManager):
-        def __init__(self):
-            self.data = {
-                'courses.csv': courses_df,
-                'students.csv': students_df,
-                'rooms.csv': rooms_df
-            }
-        
-        def load_csv(self, filename):
-            return self.data.get(filename, pd.DataFrame())
-        
-        def save_csv(self, df, filename):
-            self.data[filename] = df
-            return True
-    
-    # Generate schedule
     class TempCSVManager(CSVManager):
         def __init__(self):
             self.data = {
@@ -280,7 +327,22 @@ def generate_schedule():
     else:
         return jsonify({'error': 'Invalid algorithm specified'}), 400
     
-    # Save schedule to MongoDB
+    # Move current schedule to past_schedule if it exists
+    latest_schedule = collections['final_schedule'].find_one(
+        sort=[('created_at', -1)]
+    )
+    
+    if latest_schedule:
+        # Move current schedule to past_schedule
+        collections['past_schedule'].delete_many({})  # Clear previous past schedule
+        collections['past_schedule'].insert_one({
+            'algorithm': latest_schedule.get('algorithm'),
+            'schedule': latest_schedule.get('schedule'),
+            'created_at': latest_schedule.get('created_at'),
+            'archived_at': datetime.utcnow()
+        })
+    
+    # Save new schedule
     schedule_id = collections['final_schedule'].insert_one({
         'algorithm': algorithm,
         'schedule': schedule,
@@ -661,6 +723,114 @@ def update_course_details(course_code):
     return jsonify({
         'message': 'Course updated successfully',
         'course': make_json_serializable(updated_course)
+    })
+
+@app.route('/api/schedules/generate/selected', methods=['POST'])
+@handle_errors
+def generate_selected_schedule():
+    """Generate a schedule for manually selected courses"""
+    data = request.json
+    if not data or 'course_codes' not in data:
+        return jsonify({'error': 'No course codes provided'}), 400
+    
+    course_codes = data.get('course_codes', [])
+    algorithm = data.get('algorithm', 'graph_coloring')
+    
+    # Get selected courses
+    courses = list(collections['courses'].find({'course_code': {'$in': course_codes}}))
+    if not courses:
+        return jsonify({'error': 'No valid courses found'}), 400
+    
+    # Get students enrolled in selected courses
+    students = list(collections['students'].find({'course_code': {'$in': course_codes}}))
+    
+    # Get all rooms
+    rooms = list(collections['rooms'].find())
+    if not rooms:
+        return jsonify({'error': 'No rooms available for scheduling'}), 400
+    
+    # Convert to DataFrames
+    courses_df = pd.DataFrame(courses)
+    students_df = pd.DataFrame(students)
+    rooms_df = pd.DataFrame(rooms)
+    
+    # Create temporary CSV manager
+    class TempCSVManager(CSVManager):
+        def __init__(self):
+            self.data = {
+                'courses.csv': courses_df,
+                'students.csv': students_df,
+                'rooms.csv': rooms_df
+            }
+        
+        def load_csv(self, filename):
+            return self.data.get(filename, pd.DataFrame())
+        
+        def save_csv(self, df, filename):
+            self.data[filename] = df
+            return True
+    
+    admin = AdminSection(csv_manager=TempCSVManager())
+    
+    constraints = data.get('constraints', {})
+    if 'start_date' in constraints and isinstance(constraints['start_date'], str):
+        constraints['start_date'] = datetime.strptime(constraints['start_date'], "%Y-%m-%d").date()
+    
+    # Generate schedule using selected algorithm
+    if algorithm == 'graph_coloring':
+        schedule = admin._schedule_graph_coloring(courses_df, students_df, rooms_df, constraints)
+    elif algorithm == 'simulated_annealing':
+        schedule = admin._schedule_simulated_annealing(courses_df, students_df, rooms_df, constraints)
+    elif algorithm == 'genetic':
+        schedule = admin._schedule_genetic_algorithm(courses_df, students_df, rooms_df, constraints)
+    else:
+        return jsonify({'error': 'Invalid algorithm specified'}), 400
+    
+    # Move current schedule to past_schedule if it exists
+    latest_schedule = collections['final_schedule'].find_one(
+        sort=[('created_at', -1)]
+    )
+    
+    if latest_schedule:
+        # Move current schedule to past_schedule
+        collections['past_schedule'].delete_many({})  # Clear previous past schedule
+        collections['past_schedule'].insert_one({
+            'algorithm': latest_schedule.get('algorithm'),
+            'schedule': latest_schedule.get('schedule'),
+            'created_at': latest_schedule.get('created_at'),
+            'archived_at': datetime.utcnow()
+        })
+    
+    # Save new schedule
+    schedule_id = collections['final_schedule'].insert_one({
+        'algorithm': algorithm,
+        'schedule': schedule,
+        'created_at': datetime.utcnow(),
+        'selected_courses': course_codes
+    }).inserted_id
+    
+    return jsonify({
+        'message': 'Schedule generated successfully',
+        'id': str(schedule_id),
+        'schedule': schedule
+    }), 201
+
+@app.route('/api/schedules/past', methods=['GET'])
+@handle_errors
+def get_past_schedule():
+    """Get the previous exam schedule that was archived"""
+    past_schedule = collections['past_schedule'].find_one(
+        sort=[('archived_at', -1)]
+    )
+    
+    if not past_schedule:
+        return jsonify({'error': 'No past schedule available'}), 404
+    
+    return jsonify({
+        'algorithm': past_schedule.get('algorithm'),
+        'schedule': past_schedule.get('schedule'),
+        'created_at': past_schedule.get('created_at'),
+        'archived_at': past_schedule.get('archived_at')
     })
 
 if __name__ == '__main__':

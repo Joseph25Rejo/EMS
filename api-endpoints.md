@@ -82,22 +82,90 @@
    - List all courses: `GET /api/courses`
    - Create new course: `POST /api/courses`
    - Update course: `PUT /api/courses/{course_code}`
+   - Remove student from course:
+     ```
+     DELETE /api/students/{student_id}/courses/{course_code}
+     Response:
+     {
+       "message": "Student removed from course successfully"
+     }
+     ```
 
 3. **Room Management**
    - List all rooms: `GET /api/rooms`
-   - Create new room: `POST /api/rooms`
+   - Create new room: 
+     ```
+     POST /api/rooms
+     Body: {
+       "room_id": "HALL-C",
+       "room_name": "New Hall",
+       "capacity": 100
+     }
+     ```
+   - Delete room:
+     ```
+     DELETE /api/rooms/{room_id}
+     Response:
+     {
+       "message": "Room deleted successfully"
+     }
+     Error Cases:
+     {
+       "error": "Cannot delete room as it is being used in the current exam schedule"
+     }
+     ```
 
 4. **Schedule Management**
    - Get all schedules: `GET /api/schedules`
-   - Generate new schedule: 
+   - Get past schedule:
+     ```
+     GET /api/schedules/past
+     Response:
+     {
+       "algorithm": "graph_coloring",
+       "schedule": [...],
+       "created_at": "2024-03-21T10:00:00Z",
+       "archived_at": "2024-03-22T10:00:00Z"
+     }
+     ```
+   - Generate new schedule (all courses): 
      ```
      POST /api/schedules/generate
      Body: {
        "algorithm": "graph_coloring" | "simulated_annealing" | "genetic",
        "constraints": {
-         "start_date": "2024-01-01"
+         "start_date": "2024-01-01",
+         "total_days": 14,          // optional
+         "max_exams_per_day": 2     // optional
        }
      }
+     Response:
+     {
+       "message": "Schedule generated successfully",
+       "id": "schedule_id",
+       "schedule": [...]
+     }
+     Note: Automatically moves current schedule to past_schedule
+     ```
+   - Generate schedule for selected courses:
+     ```
+     POST /api/schedules/generate/selected
+     Body: {
+       "course_codes": ["CS101", "CS102", "CS103"],
+       "algorithm": "graph_coloring" | "simulated_annealing" | "genetic",
+       "constraints": {
+         "start_date": "2024-01-01",
+         "total_days": 14,          // optional
+         "max_exams_per_day": 2     // optional
+       }
+     }
+     Response:
+     {
+       "message": "Schedule generated successfully",
+       "id": "schedule_id",
+       "schedule": [...]
+     }
+     Note: Automatically moves current schedule to past_schedule
      ```
    - Check schedule conflicts: `GET /api/schedules/conflicts`
 
