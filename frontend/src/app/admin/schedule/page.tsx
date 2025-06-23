@@ -431,7 +431,7 @@ export default function ScheduleGenerator() {
       doc.text('RV College of Engineering', pageWidth - margin - 45, currentY + 25);
 
       // Add page numbers
-      const pageCount = doc.internal.getNumberOfPages();
+      const pageCount = doc.internal.pages.length - 1;
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
         doc.setFontSize(10);
