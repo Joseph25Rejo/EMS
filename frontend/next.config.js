@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
+  reactStrictMode: false,
   swcMinify: true,
   typescript: {
     // !! WARN !!
@@ -15,6 +15,12 @@ const nextConfig = {
   },
   images: {
     domains: ['localhost'],
+    unoptimized: true,
+  },
+  experimental: {
+    // Add experimental features to help with build
+    esmExternals: true,
+    forceSwcTransforms: true,
   },
   async rewrites() {
     return [
