@@ -19,9 +19,5 @@
       "src": "/(.*)",
       "dest": "frontend/$1"
     }
-  ],
-  "env": {
-    "MONGODB_URI": "@mongodb_uri",
-    "FLASK_ENV": "production"
-  }
+  ]
 } 
