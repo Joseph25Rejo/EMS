@@ -117,7 +117,7 @@ export default function LoginPage() {
       }else if(formData.role === 'teacher'){
         router.push('/teacher_dashboard');
       }else if(formData.role === 'admin'){
-        router.push('/admin_dashboard');
+        router.push('/admin');
       }
     } catch (err) {
       console.error('Login error:', err);
