@@ -46,7 +46,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const quickActions = [
     { name: 'Add Course', href: '/admin/courses/create', icon: Plus },
     { name: 'Add Room', href: '/admin/rooms/create', icon: Plus },
-    { name: 'Generate Schedule', href: '/admin/schedules/generate', icon: Calendar },
+    { name: 'Generate Schedule', href: '/admin/schedule', icon: Calendar },
   ]
 
   return (

@@ -14,6 +14,12 @@ interface InvigilationDuty {
   enrolled_students: number;
   room_usns: string[];
   instructor: string;
+  partner_teachers: {
+    instructor: string;
+    course_code: string;
+    course_name: string;
+    students: string[];
+  }[];
 }
 
 export default function TeacherInvigilations() {
@@ -54,25 +60,43 @@ export default function TeacherInvigilations() {
     setLoading(true);
     try {
       console.log('Fetching invigilations for teacher:', name);
-      // Fetch upcoming invigilations
+      
+      // Fetch upcoming invigilations from final_schedule
       const upcomingResponse = await fetch(`/api/teachers/${encodeURIComponent(name)}/invigilations/upcoming`);
       if (!upcomingResponse.ok) {
         console.error('Failed to fetch upcoming invigilations:', await upcomingResponse.text());
         throw new Error('Failed to fetch upcoming invigilations');
       }
-      const upcomingData = await upcomingResponse.json();
+      const upcomingData = await upcomingResponse.json() as InvigilationDuty[];
       console.log('Upcoming invigilations response:', upcomingData);
+      
+      // Sort upcoming by date ascending, handling null/undefined dates
+      upcomingData.sort((a: InvigilationDuty, b: InvigilationDuty) => {
+        // Put null/undefined dates at the end
+        if (!a.date) return 1;
+        if (!b.date) return -1;
+        return new Date(a.date).getTime() - new Date(b.date).getTime();
+      });
       setUpcomingInvigilations(upcomingData);
 
-      // Fetch past invigilations
+      // Fetch past invigilations from past_schedule
       const pastResponse = await fetch(`/api/teachers/${encodeURIComponent(name)}/invigilations/history`);
       if (!pastResponse.ok) {
         console.error('Failed to fetch past invigilations:', await pastResponse.text());
         throw new Error('Failed to fetch past invigilations');
       }
-      const pastData = await pastResponse.json();
+      const pastData = await pastResponse.json() as InvigilationDuty[];
       console.log('Past invigilations response:', pastData);
+      
+      // Sort past by date descending, handling null/undefined dates
+      pastData.sort((a: InvigilationDuty, b: InvigilationDuty) => {
+        // Put null/undefined dates at the end
+        if (!a.date) return 1;
+        if (!b.date) return -1;
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      });
       setPastInvigilations(pastData);
+      
     } catch (error) {
       console.error('Error fetching invigilations:', error);
       setError('Failed to load invigilation data');
@@ -451,7 +475,7 @@ export default function TeacherInvigilations() {
                   </div>
 
                   {/* Modal Content - Scrollable */}
-                  <div className="flex-1 overflow-y-auto p-8">
+                  <div className="p-8 overflow-y-auto flex-1">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
                       <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-6 border border-indigo-100">
                         <div className="flex items-center mb-4">
@@ -481,78 +505,79 @@ export default function TeacherInvigilations() {
                             <p className="text-sm font-medium text-gray-500 mb-1">Location</p>
                             <p className="text-gray-900 font-semibold text-lg">Room {selectedDuty.room}</p>
                           </div>
-                          <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <p className="text-sm font-medium text-gray-500 mb-1">Total Students</p>
-                            <div className="flex items-center">
-                              <p className="text-gray-900 font-semibold text-2xl mr-2">{selectedDuty.enrolled_students || 0}</p>
-                              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-.5a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                              </svg>
-                            </div>
-                          </div>
                         </div>
                       </div>
-                      
-                      <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-6 border border-gray-200">
+
+                      {/* Partner Teachers Section */}
+                      <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-6 border border-emerald-100">
                         <div className="flex items-center mb-4">
-                          <div className="w-10 h-10 rounded-lg bg-gray-200 flex items-center justify-center mr-3">
-                            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                          <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center mr-3">
+                            <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                             </svg>
                           </div>
-                          <h4 className="text-lg font-bold text-gray-900">Course Information</h4>
+                          <h4 className="text-lg font-bold text-gray-900">Partner Teachers</h4>
                         </div>
                         <div className="space-y-4">
-                          <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <p className="text-sm font-medium text-gray-500 mb-1">Course Name</p>
-                            <p className="text-gray-900 font-semibold">{selectedDuty.course_name}</p>
-                          </div>
-                          <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <p className="text-sm font-medium text-gray-500 mb-1">Course Code</p>
-                            <p className="text-gray-900 font-semibold text-lg">{selectedDuty.course_code}</p>
-                          </div>
-                          <div className="bg-white rounded-lg p-4 shadow-sm">
-                            <p className="text-sm font-medium text-gray-500 mb-1">Course Instructor</p>
-                            <p className="text-gray-900 font-semibold">{selectedDuty.instructor}</p>
-                          </div>
+                          {selectedDuty.partner_teachers && selectedDuty.partner_teachers.length > 0 ? (
+                            selectedDuty.partner_teachers.map((partner, index) => (
+                              <div key={index} className="bg-white rounded-lg p-4 shadow-sm">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div>
+                                    <p className="font-semibold text-gray-900">{partner.instructor}</p>
+                                    <p className="text-sm text-gray-500">{partner.course_code} - {partner.course_name}</p>
+                                  </div>
+                                  <span className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
+                                    {partner.students.length} students
+                                  </span>
+                                </div>
+                                <div className="mt-3">
+                                  <p className="text-sm font-medium text-gray-500 mb-2">Students</p>
+                                  <div className="max-h-32 overflow-y-auto">
+                                    <div className="grid grid-cols-2 gap-2">
+                                      {partner.students.map((student, idx) => (
+                                        <span key={idx} className="text-sm text-gray-700 bg-gray-50 px-2 py-1 rounded">
+                                          {student}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="bg-white rounded-lg p-4 shadow-sm text-center">
+                              <p className="text-gray-500">No partner teachers assigned for this invigilation.</p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
-                    
-                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-200">
-                      <div className="flex items-center justify-between mb-6">
+
+                    {/* Students Section */}
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100">
+                      <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center">
                           <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center mr-3">
                             <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                             </svg>
                           </div>
-                          <h4 className="text-lg font-bold text-gray-900">Student List</h4>
+                          <h4 className="text-lg font-bold text-gray-900">Your Students</h4>
                         </div>
-                        <div className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
-                          {formatUSNList(selectedDuty.room_usns).length} students
-                        </div>
+                        <span className="px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                          {formatUSNList(selectedDuty.room_usns || []).length} students
+                        </span>
                       </div>
-                      
-                      {formatUSNList(selectedDuty.room_usns).length > 0 ? (
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-80 overflow-y-auto">
-                          {formatUSNList(selectedDuty.room_usns).map((usn, index) => (
-                            <div 
-                              key={index} 
-                              className="bg-white rounded-xl px-4 py-3 text-sm text-gray-700 shadow-sm hover:shadow-md transition-shadow border border-gray-100 font-mono"
-                            >
+                      <div className="bg-white rounded-lg p-4 shadow-sm">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                          {formatUSNList(selectedDuty.room_usns || []).map((usn, index) => (
+                            <div key={index} className="bg-gray-50 px-3 py-2 rounded-lg text-sm text-gray-700">
                               {usn}
                             </div>
                           ))}
                         </div>
-                      ) : (
-                        <div className="text-center py-8">
-                          <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-.5a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                          </svg>
-                          <p className="text-gray-500">No student list available</p>
-                        </div>
-                      )}
+                      </div>
                     </div>
                   </div>
                   

@@ -59,13 +59,27 @@ export default function ScheduleGenerator() {
     setError(null);
     
     try {
+      // Helper function to handle NaN values in JSON responses
+      const parseJSONSafely = async (response: Response) => {
+        const text = await response.text();
+        // Replace NaN with null in the response text
+        const safeText = text.replace(/:\s*NaN/g, ':null');
+        try {
+          return JSON.parse(safeText);
+        } catch (e) {
+          console.error('JSON Parse Error:', e);
+          console.error('Response text:', text);
+          throw new Error('Invalid response format from server');
+        }
+      };
+
       // Fetch courses
       const coursesResponse = await fetch(`${API_BASE_URL}/api/courses`);
       if (!coursesResponse.ok) {
         throw new Error(`Failed to fetch courses: ${coursesResponse.status}`);
       }
       
-      const coursesData = await coursesResponse.json();
+      const coursesData = await parseJSONSafely(coursesResponse);
       setCourses(coursesData);
 
       // Fetch enrollment counts for each course
@@ -73,7 +87,7 @@ export default function ScheduleGenerator() {
         try {
           const studentsResponse = await fetch(`${API_BASE_URL}/api/students`);
           if (studentsResponse.ok) {
-            const studentsData = await studentsResponse.json();
+            const studentsData = await parseJSONSafely(studentsResponse);
             const courseEnrollments = studentsData.filter((student: any) => 
               student.course_code === course.course_code
             ).length;
@@ -96,7 +110,7 @@ export default function ScheduleGenerator() {
       // Fetch current schedule
       const scheduleResponse = await fetch(`${API_BASE_URL}/api/schedules`);
       if (scheduleResponse.ok) {
-        const scheduleData = await scheduleResponse.json();
+        const scheduleData = await parseJSONSafely(scheduleResponse);
         if (Array.isArray(scheduleData) && scheduleData.length > 0) {
           const latestSchedule = scheduleData[scheduleData.length - 1]; // Get the most recent
           setGeneratedSchedule(latestSchedule);
@@ -107,7 +121,7 @@ export default function ScheduleGenerator() {
       try {
         const pastScheduleResponse = await fetch(`${API_BASE_URL}/api/schedules/past`);
         if (pastScheduleResponse.ok) {
-          const pastScheduleData = await pastScheduleResponse.json();
+          const pastScheduleData = await parseJSONSafely(pastScheduleResponse);
           setPastSchedule(pastScheduleData);
         }
       } catch (e) {
@@ -219,143 +233,218 @@ export default function ScheduleGenerator() {
     setError('');
 
     try {
-      // Dynamic imports to reduce bundle size
-      const [jsPDFModule, autoTableModule] = await Promise.all([
-        import('jspdf'),
-        import('jspdf-autotable')
-      ]);
-        
-      const { default: jsPDF } = jsPDFModule;  // Access the default export
-      const doc = new jsPDF();
-      
-      // Add title and metadata
-      doc.setProperties({
-        title: 'Exam Schedule',
-        subject: 'Generated Exam Schedule',
-        author: 'Exam Management System',
-        keywords: 'exam, schedule, pdf',
-        creator: 'Exam Management System'
-      });
-      
-      // Title
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(20);
-      doc.text('Exam Schedule', 14, 20);
-      
-      // Subtitle with algorithm and date
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(12);
-      doc.text(`Algorithm: ${generatedSchedule.algorithm.replace('_', ' ').toUpperCase()}`, 14, 30);
-      doc.text(`Generated on: ${new Date(generatedSchedule.created_at).toLocaleDateString()}`, 14, 36);
-      doc.text(`Total Exams: ${generatedSchedule.schedule.length}`, 14, 42);
-      
-      // Prepare table data with proper null/undefined checks
-      const tableData = generatedSchedule.schedule.map((exam, index) => {
-        // Ensure all values are strings and handle potential undefined/null values
-        const courseCode = exam.course_code ? String(exam.course_code) : 'N/A';
-        const courseName = exam.course_name ? String(exam.course_name) : 'N/A';
-        const date = exam.date ? String(exam.date) : 'TBD';
-        const session = exam.session ? String(exam.session) : 'TBD';
-        const room = exam.room ? String(exam.room) : 'TBD';
-        const instructor = exam.instructor ? String(exam.instructor) : 'Not assigned';
-        const studentCount = enrollmentCounts[exam.course_code] || 0;
-        
-        return [
-          String(index + 1),
-          courseCode,
-          courseName,
-          date,
-          session,
-          room,
-          instructor,
-          String(studentCount)
-        ];
+      // Initialize PDF
+      const jsPDF = (await import('jspdf')).default;
+      const doc = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4'
       });
 
-      // Add table using TypeScript type assertion for autoTable
-      (doc as any).autoTable({
-        head: [['#', 'Course Code', 'Course Name', 'Date', 'Session', 'Room', 'Instructor', 'Students']],
-        body: tableData,
-        startY: 50,
-        margin: { top: 50 },
-        styles: {
-          fontSize: 8,
-          cellPadding: 2,
-          overflow: 'linebreak',
-          cellWidth: 'wrap',
-          lineColor: [0, 0, 0],
-          lineWidth: 0.1,
-        },
-        headStyles: {
-          fillColor: [66, 139, 202],
-          textColor: 255,
-          fontStyle: 'bold',
-          lineWidth: 0.1,
-        },
-        alternateRowStyles: {
-          fillColor: [245, 245, 245],
-          textColor: 0,
-        },
-        columnStyles: {
-          0: { cellWidth: 10, halign: 'center' }, // #
-          1: { cellWidth: 25 }, // Course Code
-          2: { cellWidth: 45 }, // Course Name
-          3: { cellWidth: 25 }, // Date
-          4: { cellWidth: 25 }, // Session
-          5: { cellWidth: 25 }, // Room
-          6: { cellWidth: 30 }, // Instructor
-          7: { cellWidth: 15, halign: 'center' }  // Students
-        },
-        didDrawPage: function(data: { settings: { margin: { left: number } } }) {
-          // Footer
-          const pageSize = doc.internal.pageSize;
-          const pageHeight = pageSize.height ? pageSize.height : pageSize.getHeight();
-          doc.setFontSize(10);
-          doc.setTextColor(150);
-          doc.text(
-            'Page ' + doc.internal.getNumberOfPages(),
-            data.settings.margin.left,
-            pageHeight - 10
-          );
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 20;
+      const startY = 20;
+      let currentY = startY;
+      let logoData: string | null = null;
+
+      // Load RVCE logo
+      try {
+        const response = await fetch('/images/RVCE_logo.png');
+        const blob = await response.blob();
+        const reader = new FileReader();
+        
+        await new Promise((resolve, reject) => {
+          reader.onloadend = () => {
+            try {
+              logoData = reader.result as string;
+              // Add logo to first page
+              doc.addImage(logoData, 'PNG', margin, currentY, 30, 30);
+              resolve(null);
+            } catch (error) {
+              console.error('Error adding logo:', error);
+              resolve(null); // Continue without logo if there's an error
+            }
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      } catch (error) {
+        console.error('Error loading logo:', error);
+        // Continue without logo if there's an error
+      }
+
+      // Helper function to add page
+      const addPage = () => {
+        doc.addPage();
+        currentY = startY;
+        // Add logo to new page
+        if (logoData) {
+          try {
+            doc.addImage(logoData, 'PNG', margin, currentY, 30, 30);
+          } catch (error) {
+            console.error('Error adding logo to new page:', error);
+          }
         }
-      });
+        currentY += 35;
+      };
 
-      // Add summary at the bottom
-      const finalY = (doc as any).lastAutoTable?.finalY || 50;
-      doc.setFontSize(10);
+      currentY += 35; // Move down after logo on first page
+
+      // Add header
+      doc.setFontSize(24);
       doc.setTextColor(0, 0, 0);
       doc.setFont('helvetica', 'bold');
-      doc.text('Summary:', 14, finalY + 15);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`• Total courses scheduled: ${generatedSchedule.schedule.length}`, 14, finalY + 22);
-      doc.text(`• Total students: ${Object.values(enrollmentCounts).reduce((sum, count) => sum + count, 0)}`, 14, finalY + 28);
-      doc.text(`• Scheduling algorithm: ${generatedSchedule.algorithm.replace('_', ' ')}`, 14, finalY + 34);
+      doc.text('EXAM SCHEDULE', pageWidth / 2, currentY, { align: 'center' });
+      currentY += 10;
       
-      // Add watermark
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'normal');
+      doc.text('RV College of Engineering', pageWidth / 2, currentY, { align: 'center' });
+      currentY += 8;
+      
+      doc.setFontSize(14);
+      doc.text('Academic Year 2023-24', pageWidth / 2, currentY, { align: 'center' });
+      currentY += 15;
+
+      // Add schedule details
+      doc.setFontSize(12);
+      doc.text(`Algorithm: ${generatedSchedule.algorithm.replace('_', ' ').toUpperCase()}`, margin, currentY);
+      currentY += 8;
+      doc.text(`Generated on: ${new Date(generatedSchedule.created_at).toLocaleDateString()}`, margin, currentY);
+      currentY += 8;
+      doc.text(`Total Exams: ${generatedSchedule.schedule.length}`, margin, currentY);
+      currentY += 15;
+
+      // Table configuration
+      const colWidths = [30, 50, 30, 25, 25, 40, 20];
+      const rowHeight = 12;
+      const headers = ['Course Code', 'Course Name', 'Date', 'Session', 'Room', 'Instructor', 'Students'];
+      
+      // Draw table headers
+      const drawTableHeader = () => {
+        doc.setFillColor(240, 240, 240);
+        doc.rect(margin, currentY, pageWidth - (margin * 2), rowHeight, 'F');
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        
+        let xPos = margin;
+        headers.forEach((header, i) => {
+          doc.text(header, xPos + 2, currentY + 8);
+          xPos += colWidths[i];
+        });
+        currentY += rowHeight;
+      };
+
+      drawTableHeader();
+
+      // Draw table rows
+      doc.setFont('helvetica', 'normal');
+      generatedSchedule.schedule.forEach((exam, index) => {
+        // Check if we need a new page
+        if (currentY > pageHeight - margin - rowHeight) {
+          addPage();
+        }
+
+        // Alternate row background
+        if (index % 2 === 0) {
+          doc.setFillColor(249, 249, 249);
+          doc.rect(margin, currentY, pageWidth - (margin * 2), rowHeight, 'F');
+        }
+
+        let xPos = margin;
+        
+        // Course code
+        doc.setFillColor(240, 247, 254);
+        doc.rect(xPos + 1, currentY + 2, colWidths[0] - 2, rowHeight - 4, 'F');
+        doc.text(exam.course_code || 'N/A', xPos + 2, currentY + 8);
+        xPos += colWidths[0];
+        
+        // Course name
+        doc.text(exam.course_name || 'N/A', xPos + 2, currentY + 8);
+        xPos += colWidths[1];
+        
+        // Date
+        doc.text(exam.date || 'TBD', xPos + 2, currentY + 8);
+        xPos += colWidths[2];
+        
+        // Session
+        doc.text(exam.session || 'TBD', xPos + 2, currentY + 8);
+        xPos += colWidths[3];
+        
+        // Room
+        doc.text(exam.room || 'TBD', xPos + 2, currentY + 8);
+        xPos += colWidths[4];
+        
+        // Instructor
+        doc.text(exam.instructor || 'Not assigned', xPos + 2, currentY + 8);
+        xPos += colWidths[5];
+        
+        // Students
+        doc.text(String(enrollmentCounts[exam.course_code] || 0), xPos + 2, currentY + 8);
+
+        // Draw horizontal line
+        doc.setDrawColor(220, 220, 220);
+        doc.line(margin, currentY, pageWidth - margin, currentY);
+        
+        currentY += rowHeight;
+      });
+
+      // Draw final horizontal line
+      doc.line(margin, currentY, pageWidth - margin, currentY);
+
+      // Draw vertical lines
+      let x = margin;
+      doc.setDrawColor(220, 220, 220);
+      colWidths.forEach(width => {
+        doc.line(x, startY + 40, x, currentY);
+        x += width;
+      });
+      doc.line(x, startY + 40, x, currentY);
+
+      // Add note in a yellow box
+      if (currentY > pageHeight - margin - 40) {
+        addPage();
+      }
+      
+      currentY += 15;
+      doc.setFillColor(255, 250, 230);
+      doc.setDrawColor(255, 243, 205);
+      doc.roundedRect(margin, currentY, 160, 20, 2, 2, 'FD');
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('Important Note:', margin + 5, currentY + 8);
+      doc.setFont('helvetica', 'normal');
+      doc.text('This is the official exam schedule. Please check room assignments and timings carefully.', 
+               margin + 5, currentY + 15);
+
+      // Add signature line
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.5);
+      doc.line(pageWidth - margin - 50, currentY + 15, pageWidth - margin, currentY + 15);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Principal', pageWidth - margin - 35, currentY + 20);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text('RV College of Engineering', pageWidth - margin - 45, currentY + 25);
+
+      // Add page numbers
       const pageCount = doc.internal.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
-        doc.setFont('helvetica', 'italic');
-        doc.setFontSize(50);
-        doc.setTextColor(230, 230, 230);
-        doc.text('CONFIDENTIAL', 40, 150, { angle: 45 });
+        doc.setFontSize(10);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin - 25, pageHeight - margin);
       }
-      
-      // Reset text color
-      doc.setTextColor(0, 0, 0);
-      
-      // Save the PDF
-      const fileName = `exam-schedule-${new Date().toISOString().split('T')[0]}.pdf`;
-      doc.save(fileName);
-      
-    } catch (err) {
-      console.error('Error exporting schedule:', err);
-      let errorMessage = 'Failed to generate PDF. ';
-      if (err instanceof Error) {
-        console.error('Error details:', err.message, err.stack);
-        errorMessage += err.message;
-      }
-      setError(errorMessage);
+
+      // Save PDF
+      doc.save(`exam_schedule_${new Date().toISOString().split('T')[0]}.pdf`);
+
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      setError('Failed to generate PDF');
     } finally {
       setIsGenerating(false);
     }
@@ -461,7 +550,7 @@ export default function ScheduleGenerator() {
                   <select
                     value={algorithm}
                     onChange={(e) => setAlgorithm(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 text-gray-900"
                   >
                     <option value="graph_coloring">Graph Coloring</option>
                     <option value="simulated_annealing">Simulated Annealing</option>

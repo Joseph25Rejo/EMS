@@ -354,7 +354,7 @@ export default function AdminDashboard() {
             title="Generate Schedule"
             description="Create exam schedule using AI algorithms"
             icon={Calendar}
-            href="/admin/schedules/generate"
+            href="/admin/schedule"
             color="bg-purple-500"
           />
           <QuickActionCard

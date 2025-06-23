@@ -148,8 +148,12 @@ export default function LoginPage() {
         className="sm:mx-auto sm:w-full sm:max-w-md"
       >
         <div className="flex justify-center">
-          <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg flex items-center justify-center">
-            <LogIn className="w-7 h-7 text-white" />
+          <div className="w-24 h-24 flex items-center justify-center">
+            <img 
+              src="/images/RVCE_logo.png" 
+              alt="RVCE Logo" 
+              className="w-full h-full object-contain"
+            />
           </div>
         </div>
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">

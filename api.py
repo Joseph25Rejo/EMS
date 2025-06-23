@@ -338,8 +338,7 @@ def generate_schedule():
     )
     
     if latest_schedule:
-        # Move current schedule to past_schedule
-        collections['past_schedule'].delete_many({})  # Clear previous past schedule
+        # Append to past_schedule instead of clearing it
         collections['past_schedule'].insert_one({
             'algorithm': latest_schedule.get('algorithm'),
             'schedule': latest_schedule.get('schedule'),
@@ -469,6 +468,31 @@ def get_teacher_invigilations(teacher_name):
         exam for exam in exams
         if str(exam.get('instructor', '')).strip().lower() == teacher_name.strip().lower()
     ]
+    
+    # For each invigilation, find partner teachers (teachers with same date, session, and room)
+    for invigilation in invigilations:
+        # Find all exams on the same date, session and room
+        partner_exams = list(collections['final_schedule'].find({
+            'date': invigilation['date'],
+            'session': invigilation['session'],
+            'room': invigilation['room'],
+            'instructor': {'$ne': teacher_name}  # Exclude the current teacher
+        }))
+        
+        # Get partner teachers and their students
+        partners = []
+        for exam in partner_exams:
+            # Get students for this exam
+            students = list(collections['students'].find({'course_code': exam['course_code']}))
+            partners.append({
+                'instructor': exam['instructor'],
+                'course_code': exam['course_code'],
+                'course_name': exam['course_name'],
+                'students': [student['student_id'] for student in students]
+            })
+        
+        invigilation['partner_teachers'] = partners
+    
     return jsonify(make_json_serializable(invigilations))
 
 @app.route('/api/schedules', methods=['GET'])
@@ -642,32 +666,155 @@ def create_teacher_course():
 @app.route('/api/teachers/<teacher_id>/invigilations/upcoming', methods=['GET'])
 @handle_errors
 def get_teacher_upcoming_invigilations(teacher_id):
-    """Get upcoming invigilation duties for a teacher"""
-    current_date = datetime.now()
+    """Get upcoming invigilation duties for a teacher from final_schedule"""
+    print(f"\nDEBUG: Searching for upcoming invigilations for {teacher_id}")
     
-    # Get all invigilation duties for the teacher that are in the future
-    invigilations = list(collections['final_schedule'].find({
-        'instructor': {'$regex': f'^{teacher_id}$', '$options': 'i'},  # Case-insensitive exact match
-        'date': {'$gte': current_date.strftime('%Y-%m-%d')}
-    }).sort('date', 1))  # Sort by date ascending
+    current_date = datetime.now().strftime('%Y-%m-%d')
+    print(f"\nDEBUG: Current date: {current_date}")
+    
+    # Get all documents from final_schedule
+    all_final_schedule = list(collections['final_schedule'].find())
+    print(f"\nDEBUG: All documents in final_schedule:")
+    for doc in all_final_schedule:
+        print(f"Document created at: {doc.get('created_at')}")
+        schedule = doc.get('schedule', [])
+        if isinstance(schedule, list):
+            for exam in schedule:
+                if isinstance(exam, dict):
+                    print(f"Exam: {exam.get('date')} - {exam.get('instructor')} - {exam.get('course_code')}")
+    
+    # Get invigilations from final_schedule only
+    invigilations = []
+    for doc in all_final_schedule:
+        schedule = doc.get('schedule', [])
+        if isinstance(schedule, list):
+            for exam in schedule:
+                if isinstance(exam, dict):
+                    instructor = str(exam.get('instructor', '')).strip()
+                    exam_date = exam.get('date')
+                    if instructor.lower() == teacher_id.strip().lower():
+                        # Only include exams with valid dates that are in the future
+                        if exam_date and exam_date >= current_date:
+                            invigilations.append(exam)
 
-    print(f"Found {len(invigilations)} upcoming invigilations for {teacher_id}")  # Debug log
+    print(f"\nDEBUG: Found {len(invigilations)} upcoming invigilations in final_schedule")
+    
+    # Add partner teachers
+    for invigilation in invigilations:
+        # Find partner teachers from final_schedule only
+        partner_exams = []
+        for doc in all_final_schedule:
+            schedule = doc.get('schedule', [])
+            if isinstance(schedule, list):
+                for exam in schedule:
+                    if (isinstance(exam, dict) and
+                        exam.get('date') == invigilation['date'] and
+                        exam.get('session') == invigilation['session'] and
+                        exam.get('room') == invigilation['room'] and
+                        str(exam.get('instructor', '')).strip().lower() != teacher_id.strip().lower()):
+                        partner_exams.append(exam)
+        
+        # Get partner teachers and their students
+        partners = []
+        for exam in partner_exams:
+            # Get students for this exam
+            students = list(collections['students'].find({'course_code': exam['course_code']}))
+            partners.append({
+                'instructor': exam['instructor'],
+                'course_code': exam['course_code'],
+                'course_name': exam['course_name'],
+                'students': [student['student_id'] for student in students]
+            })
+        
+        invigilation['partner_teachers'] = partners
+
+    # Sort by date
+    invigilations.sort(key=lambda x: x.get('date', ''))
     return jsonify([make_json_serializable(duty) for duty in invigilations])
 
 @app.route('/api/teachers/<teacher_id>/invigilations/history', methods=['GET'])
 @handle_errors
 def get_teacher_invigilation_history(teacher_id):
-    """Get past invigilation duties for a teacher"""
-    current_date = datetime.now()
+    """Get past invigilation duties for a teacher from both collections"""
+    print(f"\nDEBUG: Searching for past invigilations for {teacher_id}")
     
-    # Get all invigilation duties for the teacher that are in the past
-    invigilations = list(collections['final_schedule'].find({
-        'instructor': {'$regex': f'^{teacher_id}$', '$options': 'i'},  # Case-insensitive exact match
-        'date': {'$lt': current_date.strftime('%Y-%m-%d')}
-    }).sort('date', -1))  # Sort by date descending
+    current_date = datetime.now().strftime('%Y-%m-%d')
+    print(f"\nDEBUG: Current date: {current_date}")
+    
+    past_invigilations = []
+    
+    # First get past invigilations from final_schedule (older than current date)
+    all_final_schedule = list(collections['final_schedule'].find())
+    print(f"\nDEBUG: Checking final_schedule for past invigilations")
+    for doc in all_final_schedule:
+        schedule = doc.get('schedule', [])
+        if isinstance(schedule, list):
+            for exam in schedule:
+                if isinstance(exam, dict):
+                    instructor = str(exam.get('instructor', '')).strip()
+                    exam_date = exam.get('date')
+                    if instructor.lower() == teacher_id.strip().lower():
+                        # Include exams with valid dates that are in the past
+                        if exam_date and exam_date < current_date:
+                            exam_copy = exam.copy()
+                            exam_copy['source'] = 'final_schedule'
+                            exam_copy['created_at'] = doc.get('created_at')
+                            past_invigilations.append(exam_copy)
+    
+    # Then get all invigilations from past_schedule
+    all_past_schedule = list(collections['past_schedule'].find())
+    print(f"\nDEBUG: Checking past_schedule")
+    for doc in all_past_schedule:
+        schedule = doc.get('schedule', [])
+        if isinstance(schedule, list):
+            for exam in schedule:
+                if isinstance(exam, dict):
+                    instructor = str(exam.get('instructor', '')).strip()
+                    exam_date = exam.get('date')
+                    if instructor.lower() == teacher_id.strip().lower():
+                        # Include all exams with valid dates from past_schedule
+                        if exam_date:
+                            exam_copy = exam.copy()
+                            exam_copy['source'] = 'past_schedule'
+                            exam_copy['archived_at'] = doc.get('archived_at')
+                            exam_copy['original_created_at'] = doc.get('created_at')
+                            past_invigilations.append(exam_copy)
 
-    print(f"Found {len(invigilations)} past invigilations for {teacher_id}")  # Debug log
-    return jsonify([make_json_serializable(duty) for duty in invigilations])
+    print(f"\nDEBUG: Found total {len(past_invigilations)} past invigilations")
+    
+    # Add partner teachers
+    for invigilation in past_invigilations:
+        partner_exams = []
+        # Check both collections for partner teachers
+        all_docs = all_final_schedule + all_past_schedule
+        for doc in all_docs:
+            schedule = doc.get('schedule', [])
+            if isinstance(schedule, list):
+                for exam in schedule:
+                    if (isinstance(exam, dict) and
+                        exam.get('date') == invigilation['date'] and
+                        exam.get('session') == invigilation['session'] and
+                        exam.get('room') == invigilation['room'] and
+                        str(exam.get('instructor', '')).strip().lower() != teacher_id.strip().lower()):
+                        partner_exams.append(exam)
+        
+        # Get partner teachers and their students
+        partners = []
+        for exam in partner_exams:
+            # Get students for this exam
+            students = list(collections['students'].find({'course_code': exam['course_code']}))
+            partners.append({
+                'instructor': exam['instructor'],
+                'course_code': exam['course_code'],
+                'course_name': exam['course_name'],
+                'students': [student['student_id'] for student in students]
+            })
+        
+        invigilation['partner_teachers'] = partners
+
+    # Sort by date descending (most recent first)
+    past_invigilations.sort(key=lambda x: x.get('date', ''), reverse=True)
+    return jsonify([make_json_serializable(duty) for duty in past_invigilations])
 
 @app.route('/api/teachers/courses/<course_code>', methods=['GET'])
 @handle_errors
@@ -797,8 +944,7 @@ def generate_selected_schedule():
     )
     
     if latest_schedule:
-        # Move current schedule to past_schedule
-        collections['past_schedule'].delete_many({})  # Clear previous past schedule
+        # Append to past_schedule instead of clearing it
         collections['past_schedule'].insert_one({
             'algorithm': latest_schedule.get('algorithm'),
             'schedule': latest_schedule.get('schedule'),
@@ -839,4 +985,15 @@ def get_past_schedule():
     })
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000) 
+    # Get port from environment variable or default to 5000
+    port = int(os.getenv('PORT', 5000))
+    
+    # Get environment mode
+    env = os.getenv('FLASK_ENV', 'production')
+    
+    # Configure host and debug based on environment
+    if env == 'development':
+        app.run(host='0.0.0.0', port=port, debug=True)
+    else:
+        # Production settings
+        app.run(host='0.0.0.0', port=port, debug=False) 
