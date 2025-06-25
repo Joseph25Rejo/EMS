@@ -99,8 +99,16 @@ export default function LoginPage() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Network error' }));
-        throw new Error(errorData.error || `Login failed: ${response.statusText}`);
+        const errorData = await response.json().catch(() => null);
+        if (errorData) {
+          throw new Error(errorData.error || `Login failed: ${response.statusText}`);
+        } else if (response.status === 500) {
+          throw new Error('Server error. Please try again later.');
+        } else if (response.status === 404) {
+          throw new Error('Login service not available. Please try again later.');
+        } else {
+          throw new Error('Network error. Please check your connection and try again.');
+        }
       }
 
       const data = await response.json();

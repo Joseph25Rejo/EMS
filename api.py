@@ -548,50 +548,53 @@ def login():
     if not role or not usn or not password:
         return jsonify({'error': 'Missing role, USN/UserID, or password'}), 400
     
-    # Connect to auth db
-    auth_client = MongoClient(os.getenv('MONGODB_URI'))
-    auth_db = auth_client['auth']
-    
-    if role == 'student':
-        collection = auth_db['studentauth']
-        user = collection.find_one({'USN': usn, 'Password': password})
-        if user:
-            user_data = {
-                'USN': user['USN'],
-                'name': user.get('Name') or user.get('name') or user['USN'],  # Try both Name and name fields
-                'role': 'student'
-            }
-            return jsonify({'message': 'Login successful', 'user': make_json_serializable(user_data)})
+    try:
+        # Use existing db connection
+        auth_db = client['auth']
+        
+        if role == 'student':
+            collection = auth_db['studentauth']
+            user = collection.find_one({'USN': usn, 'Password': password})
+            if user:
+                user_data = {
+                    'USN': user['USN'],
+                    'name': user.get('Name') or user.get('name') or user['USN'],
+                    'role': 'student'
+                }
+                return jsonify({'message': 'Login successful', 'user': make_json_serializable(user_data)})
+            else:
+                return jsonify({'error': 'Invalid USN/UserID or password'}), 401
+                
+        elif role == 'teacher':
+            collection = auth_db['teacher_auth']
+            user = collection.find_one({'USN': usn, 'Password': password})
+            if user:
+                user_data = {
+                    'USN': user['USN'],
+                    'name': user.get('Name', user['USN']),
+                    'role': 'teacher'
+                }
+                return jsonify({'message': 'Login successful', 'user': make_json_serializable(user_data)})
+            else:
+                return jsonify({'error': 'Invalid USN/UserID or password'}), 401
+                
+        elif role == 'admin':
+            collection = auth_db['adminauth']
+            user = collection.find_one({'UserID': usn, 'Password': password})
+            if user:
+                user_data = {
+                    'USN': user['UserID'],
+                    'name': user.get('name', user['UserID']),
+                    'role': 'admin'
+                }
+                return jsonify({'message': 'Login successful', 'user': make_json_serializable(user_data)})
+            else:
+                return jsonify({'error': 'Invalid USN/UserID or password'}), 401
         else:
-            return jsonify({'error': 'Invalid USN/UserID or password'}), 401
-            
-    elif role == 'teacher':
-        collection = auth_db['teacher_auth']
-        user = collection.find_one({'USN': usn, 'Password': password})
-        if user:
-            user_data = {
-                'USN': user['USN'],
-                'name': user.get('Name', user['USN']),
-                'role': 'teacher'
-            }
-            return jsonify({'message': 'Login successful', 'user': make_json_serializable(user_data)})
-        else:
-            return jsonify({'error': 'Invalid USN/UserID or password'}), 401
-            
-    elif role == 'admin':
-        collection = auth_db['adminauth']
-        user = collection.find_one({'UserID': usn, 'Password': password})
-        if user:
-            user_data = {
-                'USN': user['UserID'],
-                'name': user.get('name', user['UserID']),
-                'role': 'admin'
-            }
-            return jsonify({'message': 'Login successful', 'user': make_json_serializable(user_data)})
-        else:
-            return jsonify({'error': 'Invalid USN/UserID or password'}), 401
-    else:
-        return jsonify({'error': 'Invalid role'}), 400
+            return jsonify({'error': 'Invalid role'}), 400
+    except Exception as e:
+        print(f"Login error: {str(e)}")  # Log the error
+        return jsonify({'error': 'Authentication service unavailable'}), 500
 
 # Teacher endpoints
 @app.route('/api/teachers/<teacher_id>/courses', methods=['GET'])
