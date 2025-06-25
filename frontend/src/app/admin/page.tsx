@@ -12,7 +12,11 @@ import {
   AlertTriangle,
   Plus,
   Eye,
-  RefreshCw
+  RefreshCw,
+  ArrowUpRight,
+  Activity,
+  Clock,
+  CheckCircle
 } from 'lucide-react';
 import { API_ENDPOINTS } from '../../lib/config';
 
@@ -69,13 +73,11 @@ export default function AdminDashboard() {
           throw new Error(`HTTP error! status: ${statsResponse.status}`);
         }
         
-        // Try to parse JSON, but handle non-JSON responses
         try {
           const statsData = await statsResponse.json();
           setStats(statsData);
         } catch (jsonError) {
           console.error('Error parsing JSON:', jsonError);
-          // If JSON parsing fails, create a default stats object
           setStats({
             courses: 0,
             students: 0,
@@ -87,7 +89,6 @@ export default function AdminDashboard() {
         }
       } catch (statsError) {
         console.error('Error fetching statistics:', statsError);
-        // Set default values if stats fetch fails
         setStats({
           courses: 0,
           students: 0,
@@ -129,28 +130,48 @@ export default function AdminDashboard() {
     }
   }
 
-  const StatCard = ({ 
+  const EnhancedStatCard = ({ 
     title, 
     value, 
     icon: Icon, 
-    color, 
-    href 
+    gradient, 
+    href,
+    change,
+    changeType = 'positive'
   }: { 
     title: string
     value: number | string
     icon: any
-    color: string
+    gradient: string
     href?: string
+    change?: string
+    changeType?: 'positive' | 'negative'
   }) => {
     const cardContent = (
-      <div className={`bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow ${href ? 'cursor-pointer' : ''}`}>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-gray-600">{title}</p>
-            <p className="text-3xl font-bold text-gray-900">{value}</p>
+      <div className={`group relative overflow-hidden bg-white rounded-2xl p-6 shadow-sm border border-slate-200 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 ${href ? 'cursor-pointer' : ''}`}>
+        <div className={`absolute inset-0 opacity-0 group-hover:opacity-5 transition-opacity ${gradient}`} />
+        <div className="relative">
+          <div className="flex items-center justify-between mb-4">
+            <div className={`p-3 rounded-xl ${gradient} shadow-lg`}>
+              <Icon className="h-6 w-6 text-white" />
+            </div>
+            {href && (
+              <ArrowUpRight className="h-5 w-5 text-slate-400 group-hover:text-slate-600 transition-colors" />
+            )}
           </div>
-          <div className={`p-3 rounded-full ${color}`}>
-            <Icon className="h-6 w-6 text-white" />
+          <div>
+            <p className="text-sm font-medium text-slate-600 mb-1">{title}</p>
+            <p className="text-3xl font-bold text-slate-900 mb-2">{value}</p>
+            {change && (
+              <div className={`flex items-center text-sm ${
+                changeType === 'positive' ? 'text-emerald-600' : 'text-red-600'
+              }`}>
+                <TrendingUp className={`h-4 w-4 mr-1 ${
+                  changeType === 'negative' ? 'rotate-180' : ''
+                }`} />
+                {change}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -164,24 +185,25 @@ export default function AdminDashboard() {
     description, 
     icon: Icon, 
     href, 
-    color 
+    gradient 
   }: {
     title: string
     description: string
     icon: any
     href: string
-    color: string
+    gradient: string
   }) => (
     <Link href={href}>
-      <div className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow cursor-pointer">
+      <div className="group bg-white rounded-2xl p-6 shadow-sm border border-slate-200 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer">
         <div className="flex items-start space-x-4">
-          <div className={`p-2 rounded-lg ${color}`}>
-            <Icon className="h-5 w-5 text-white" />
+          <div className={`p-3 rounded-xl ${gradient} shadow-lg group-hover:scale-110 transition-transform`}>
+            <Icon className="h-6 w-6 text-white" />
           </div>
-          <div>
-            <h3 className="font-semibold text-gray-900">{title}</h3>
-            <p className="text-sm text-gray-600 mt-1">{description}</p>
+          <div className="flex-1">
+            <h3 className="font-semibold text-slate-900 mb-1">{title}</h3>
+            <p className="text-sm text-slate-600">{description}</p>
           </div>
+          <ArrowUpRight className="h-5 w-5 text-slate-400 group-hover:text-slate-600 transition-colors" />
         </div>
       </div>
     </Link>
@@ -190,7 +212,10 @@ export default function AdminDashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-slate-600 font-medium">Loading dashboard...</p>
+        </div>
       </div>
     )
   }
@@ -204,179 +229,222 @@ export default function AdminDashboard() {
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <AlertTriangle className="mx-auto h-12 w-12 text-red-500" />
-          <h3 className="mt-4 text-lg font-medium text-gray-900">Error loading dashboard</h3>
-          <p className="mt-1 text-sm text-gray-500">{error}</p>
-          <div className="mt-6">
-            <button
-              onClick={handleRetry}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Try again
-            </button>
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle className="h-8 w-8 text-red-500" />
           </div>
+          <h3 className="text-xl font-semibold text-slate-900 mb-2">Error loading dashboard</h3>
+          <p className="text-slate-600 mb-6">{error}</p>
+          <button
+            onClick={handleRetry}
+            className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Try again
+          </button>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Overview of your exam scheduling system
-        </p>
+    <div className="space-y-8">
+      {/* Enhanced Header */}
+      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl p-8 text-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Welcome back, Admin!</h1>
+            <p className="text-blue-100 text-lg">
+              Here's what's happening with your exam scheduling system today.
+            </p>
+          </div>
+          <div className="hidden lg:block">
+            <div className="w-24 h-24 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+              <Activity className="h-12 w-12 text-white" />
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Statistics Cards */}
+      {/* Enhanced Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
+        <EnhancedStatCard
           title="Total Courses"
           value={stats?.courses || 0}
           icon={BookOpen}
-          color="bg-blue-500"
+          gradient="bg-gradient-to-br from-blue-500 to-blue-600"
           href="/admin/courses"
+          change="+12% from last month"
         />
-        <StatCard
+        <EnhancedStatCard
           title="Total Students"
           value={stats?.students || 0}
           icon={Users}
-          color="bg-green-500"
+          gradient="bg-gradient-to-br from-emerald-500 to-emerald-600"
           href="/admin/students"
+          change="+8% from last month"
         />
-        <StatCard
+        <EnhancedStatCard
           title="Available Rooms"
           value={stats?.rooms || 0}
           icon={Building}
-          color="bg-purple-500"
+          gradient="bg-gradient-to-br from-purple-500 to-purple-600"
           href="/admin/rooms"
+          change="+2 new rooms"
         />
-        <StatCard
+        <EnhancedStatCard
           title="Total Enrollments"
           value={stats?.enrollments || 0}
           icon={TrendingUp}
-          color="bg-orange-500"
+          gradient="bg-gradient-to-br from-orange-500 to-orange-600"
+          change="+15% from last month"
         />
       </div>
 
-      {/* Additional Stats */}
+      {/* Enhanced Overview Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Schedule Overview</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-gray-900">Generated Schedules</span>
-              <span className="text-sm font-medium text-gray-900">{stats?.schedules || 0}</span>
+        {/* Schedule Overview */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-slate-900">Schedule Overview</h3>
+            <div className="p-2 bg-blue-50 rounded-lg">
+              <Calendar className="h-5 w-5 text-blue-600" />
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center p-4 bg-slate-50 rounded-xl">
+              <div className="flex items-center space-x-3">
+                <CheckCircle className="h-5 w-5 text-emerald-500" />
+                <span className="font-medium text-slate-900">Generated Schedules</span>
+              </div>
+              <span className="text-xl font-bold text-slate-900">{stats?.schedules || 0}</span>
             </div>
             {stats?.most_popular_course && (
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-gray-900">Most Popular Course</span>
-                <span className="text-sm font-medium text-gray-900">
-                  {stats.most_popular_course._id} ({stats.most_popular_course.count} students)
-                </span>
+              <div className="flex justify-between items-center p-4 bg-blue-50 rounded-xl">
+                <div className="flex items-center space-x-3">
+                  <TrendingUp className="h-5 w-5 text-blue-500" />
+                  <span className="font-medium text-slate-900">Most Popular Course</span>
+                </div>
+                <div className="text-right">
+                  <div className="font-bold text-slate-900">{stats.most_popular_course._id}</div>
+                  <div className="text-sm text-slate-600">{stats.most_popular_course.count} students</div>
+                </div>
               </div>
             )}
           </div>
           <Link 
             href="/admin/schedules" 
-            className="mt-4 inline-flex items-center text-sm text-blue-600 hover:text-blue-500"
+            className="mt-6 inline-flex items-center text-blue-600 hover:text-blue-700 font-medium transition-colors"
           >
-            <Eye className="h-4 w-4 mr-1" />
+            <Eye className="h-4 w-4 mr-2" />
             View all schedules
           </Link>
         </div>
 
-        {/* Conflicts Panel */}
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Schedule Conflicts</h3>
-            {conflicts.length > 0 && (
-              <span className="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                {conflicts.length} conflicts
-              </span>
-            )}
+        {/* Enhanced Conflicts Panel */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-slate-900">Schedule Conflicts</h3>
+            <div className="flex items-center space-x-2">
+              {conflicts.length > 0 ? (
+                <span className="bg-red-100 text-red-700 text-sm font-medium px-3 py-1 rounded-full">
+                  {conflicts.length} conflicts
+                </span>
+              ) : (
+                <span className="bg-emerald-100 text-emerald-700 text-sm font-medium px-3 py-1 rounded-full">
+                  All clear
+                </span>
+              )}
+            </div>
           </div>
           
           {conflicts.length === 0 ? (
-            <div className="text-center py-4">
-              <AlertTriangle className="h-8 w-8 text-green-400 mx-auto mb-2" />
-              <p className="text-sm text-gray-600">No scheduling conflicts detected</p>
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="h-8 w-8 text-emerald-500" />
+              </div>
+              <p className="text-slate-600 font-medium">No scheduling conflicts detected</p>
+              <p className="text-sm text-slate-500 mt-1">Your schedule is running smoothly!</p>
             </div>
           ) : (
-            <div className="space-y-2 max-h-32 overflow-y-auto">
+            <div className="space-y-3 max-h-48 overflow-y-auto">
               {conflicts.slice(0, 3).map((conflict, index) => (
-                <div key={index} className="flex items-start space-x-2 p-2 bg-red-50 rounded">
-                  <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-red-700">{conflict.message}</p>
+                <div key={index} className="flex items-start space-x-3 p-4 bg-red-50 rounded-xl border border-red-100">
+                  <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-red-900">{conflict.type}</p>
+                    <p className="text-sm text-red-700 mt-1">{conflict.message}</p>
+                  </div>
                 </div>
               ))}
               {conflicts.length > 3 && (
-                <p className="text-xs text-gray-500 text-center">
-                  And {conflicts.length - 3} more conflicts...
-                </p>
+                <div className="text-center py-2">
+                  <p className="text-sm text-slate-500">
+                    And {conflicts.length - 3} more conflicts...
+                  </p>
+                </div>
               )}
             </div>
           )}
           
           <Link 
             href="/admin/schedules/conflicts" 
-            className="mt-4 inline-flex items-center text-sm text-red-600 hover:text-red-500"
+            className="mt-6 inline-flex items-center text-red-600 hover:text-red-700 font-medium transition-colors"
           >
-            <AlertTriangle className="h-4 w-4 mr-1" />
-            View all conflicts
+            <AlertTriangle className="h-4 w-4 mr-2" />
+            {conflicts.length > 0 ? 'Resolve conflicts' : 'View conflict history'}
           </Link>
         </div>
       </div>
 
-      {/* Quick Actions */}
+      {/* Enhanced Quick Actions */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-slate-900">Quick Actions</h2>
+          <p className="text-slate-600">Streamline your workflow with these shortcuts</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <QuickActionCard
             title="Add New Course"
             description="Create a new course and set up its details"
             icon={Plus}
             href="/admin/courses/create"
-            color="bg-blue-500"
+            gradient="bg-gradient-to-br from-blue-500 to-blue-600"
           />
           <QuickActionCard
             title="Add Room"
             description="Register a new examination room"
             icon={Building}
             href="/admin/rooms/create"
-            color="bg-green-500"
+            gradient="bg-gradient-to-br from-emerald-500 to-emerald-600"
           />
           <QuickActionCard
             title="Generate Schedule"
             description="Create exam schedule using AI algorithms"
             icon={Calendar}
             href="/admin/schedule"
-            color="bg-purple-500"
+            gradient="bg-gradient-to-br from-purple-500 to-purple-600"
           />
           <QuickActionCard
             title="Enroll Students"
             description="Add students to courses"
             icon={Users}
             href="/admin/students/enroll"
-            color="bg-orange-500"
-          />
+            gradient="bg-gradient-to-br from-orange-500 to-orange-600"
+          />S
           <QuickActionCard
             title="View Schedules"
             description="Browse and filter exam schedules"
             icon={Eye}
             href="/admin/schedules"
-            color="bg-indigo-500"
+            gradient="bg-gradient-to-br from-indigo-500 to-indigo-600"
           />
           <QuickActionCard
-            title="Check Conflicts"
-            description="Review scheduling conflicts and issues"
-            icon={AlertTriangle}
-            href="/admin/schedules/conflicts"
-            color="bg-red-500"
+            title="System Health"
+            description="Monitor system performance and logs"
+            icon={Activity}
+            href="/admin/system"
+            gradient="bg-gradient-to-br from-teal-500 to-teal-600"
           />
         </div>
       </div>

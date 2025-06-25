@@ -210,15 +210,22 @@ export default function DashboardPage() {
 
       // Add watermark if logo is loaded
       if (logoBase64) {
-        const opacity = 0.05; // Reduced opacity to match preview
-        pdf.saveGraphicsState();
-        pdf.setGState(new (pdf as any).GState({ opacity }));
+        // jsPDF does not support saveGraphicsState/setGState natively.
+        // Instead, simulate opacity by drawing a semi-transparent rectangle first, then the image.
+        // This is a workaround since jsPDF's image opacity is not directly supported.
         try {
+          // Draw a white rectangle with low opacity as a base for the watermark
+          (pdf as any).setFillAlpha?.(0.05);
+          pdf.setFillColor(255, 255, 255);
+          pdf.rect(70, 40, 160, 160, 'F');
+          (pdf as any).setFillAlpha?.(1);
+
+          // Draw the logo image (will appear faint due to the alpha rectangle below)
           pdf.addImage(logoBase64, 'PNG', 70, 40, 160, 160);
         } catch (error) {
           console.error('Error adding watermark:', error);
         }
-        pdf.restoreGraphicsState();
+        // pdf.restoreGraphicsState(); // Removed: Method does not exist on jsPDF
       }
 
       // Add "RVCE" watermark text

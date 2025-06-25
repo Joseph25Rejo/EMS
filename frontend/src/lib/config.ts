@@ -1,10 +1,10 @@
 // API configuration
-export const API_BASE_URL = 'http://localhost:5000';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export const API_ENDPOINTS = {
-  STATISTICS: `${API_BASE_URL}/api/statistics`,
-  CONFLICTS: `${API_BASE_URL}/api/schedules/conflicts`,
-  ROOMS: `${API_BASE_URL}/api/rooms`,
-  COURSES: `${API_BASE_URL}/api/courses`,
+  STATISTICS: `/api/statistics`,
+  CONFLICTS: `/api/schedules/conflicts`,
+  ROOMS: `/api/rooms`,
+  COURSES: `/api/courses`,
   // Add other API endpoints here as needed
 };

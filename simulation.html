@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Scheduling Graph Coloring</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: white;
+            overflow-x: hidden;
+        }
+        
+        /* Main Landing View */
+        .main-container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            position: relative;
+        }
+        
+        .main-container.overlay-active {
+            transform: scale(0.8) translateY(-100px);
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        .hero-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 60px 20px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .hero-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 30% 20%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 80%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
+                        radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.2) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        
+        .hero-content {
+            position: relative;
+            z-index: 2;
+        }
+        
+        .hero-title {
+            font-size: clamp(3rem, 8vw, 6rem);
+            font-weight: 800;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1.1;
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        .hero-subtitle {
+            font-size: 1.4rem;
+            opacity: 0.9;
+            margin-bottom: 40px;
+            max-width: 600px;
+            line-height: 1.6;
+            animation: float 6s ease-in-out infinite 0.5s;
+        }
+        
+        .cta-buttons {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            animation: float 6s ease-in-out infinite 1s;
+        }
+        
+        .btn {
+            padding: 16px 32px;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .btn:hover::before {
+            left: 100%;
+        }
+        
+        .btn:hover {
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: 2px solid transparent;
+        }
+        
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+        
+        .btn-glow {
+            box-shadow: 0 0 30px rgba(102, 126, 234, 0.5);
+        }
+        
+        /* Features Section */
+        .features {
+            padding: 80px 20px;
+            background: rgba(255,255,255,0.02);
+            backdrop-filter: blur(10px);
+        }
+        
+        .features-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+        
+        .feature-card {
+            background: rgba(255,255,255,0.05);
+            padding: 40px 30px;
+            border-radius: 20px;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.4s ease;
+            text-align: center;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-10px);
+            background: rgba(255,255,255,0.08);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+        
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            display: block;
+        }
+        
+        .feature-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #fff;
+        }
+        
+        .feature-desc {
+            opacity: 0.8;
+            line-height: 1.6;
+        }
+        
+        /* Simulation Overlay */
+        .simulation-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            transform: translateY(100vh);
+            transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            opacity: 0;
+        }
+        
+        .simulation-overlay.active {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        
+        .sim-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 40px;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .sim-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .sim-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            z-index: 1001;
+            background: rgba(0,0,0,0.8);
+            padding: 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+            min-width: 250px;
+        }
+        
+        .control-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            border-radius: 25px;
+            flex: 1;
+            min-width: 100px;
+        }
+        
+        .btn-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255,0,0,0.2);
+            border: 2px solid rgba(255,0,0,0.5);
+            color: #ff6b6b;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .btn-close:hover {
+            background: rgba(255,0,0,0.3);
+            transform: scale(1.1);
+        }
+        
+        .canvas-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            padding: 20px;
+        }
+        
+        canvas {
+            border-radius: 15px;
+            box-shadow: 0 0 50px rgba(102, 126, 234, 0.3);
+            background: radial-gradient(circle at center, #1a1a2e 0%, #0f0f23 100%);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .algorithm-info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.8);
+            padding: 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+            max-width: 350px;
+        }
+        
+        .legend {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.8);
+            padding: 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 12px;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+        
+        .stats-panel {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.8);
+            padding: 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.1);
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            min-width: 300px;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            display: block;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+        
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .speed-slider {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255,255,255,0.2);
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        .speed-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(102, 126, 234, 0.5);
+        }
+        
+        /* Animations */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(102, 126, 234, 0.5); }
+            50% { box-shadow: 0 0 40px rgba(102, 126, 234, 0.8); }
+        }
+        
+        .pulse { animation: pulse 2s infinite; }
+        .glow { animation: glow 2s infinite; }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sim-controls {
+                position: relative;
+                top: auto;
+                right: auto;
+                margin: 20px;
+                width: calc(100% - 40px);
+            }
+            
+            .algorithm-info, .legend, .stats-panel {
+                position: relative;
+                margin: 10px;
+                max-width: none;
+            }
+            
+            .canvas-container {
+                flex-direction: column;
+            }
+        }
+        
+        /* Particles Background */
+        .particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: rgba(102, 126, 234, 0.6);
+            border-radius: 50%;
+            animation: particleFloat 15s infinite linear;
+        }
+        
+        @keyframes particleFloat {
+            0% {
+                transform: translateY(100vh) translateX(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100px) translateX(100px);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Particles Background -->
+    <div class="particles" id="particles"></div>
+    
+    <!-- Main Landing Page -->
+    <div class="main-container" id="mainContainer">
+        <div class="hero-section">
+            <div class="hero-content">
+                <h1 class="hero-title">🎓 Exam Scheduler</h1>
+                <p class="hero-subtitle">
+                    Revolutionary graph coloring algorithm that eliminates exam conflicts while minimizing time slots. 
+                    Watch the magic happen with stunning real-time visualization.
+                </p>
+                <div class="cta-buttons">
+                    <button class="btn btn-primary btn-glow" onclick="startSimulation()">
+                        <span>🚀</span> Launch Simulation
+                    </button>
+                    <button class="btn btn-secondary" onclick="scrollToFeatures()">
+                        <span>📚</span> Learn More
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="features" id="features">
+            <div class="features-grid">
+                <div class="feature-card">
+                    <span class="feature-icon">🧠</span>
+                    <h3 class="feature-title">Smart Algorithm</h3>
+                    <p class="feature-desc">Welsh-Powell graph coloring ensures optimal scheduling with minimum time slots needed.</p>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">🎨</span>
+                    <h3 class="feature-title">Live Visualization</h3>
+                    <p class="feature-desc">Watch the algorithm work in real-time with beautiful animations and interactive controls.</p>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">⚡</span>
+                    <h3 class="feature-title">Zero Conflicts</h3>
+                    <p class="feature-desc">Guarantees no student has overlapping exams while minimizing administrative overhead.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Simulation Overlay -->
+    <div class="simulation-overlay" id="simulationOverlay">
+        <div class="sim-header">
+            <div class="sim-title">🎓 Exam Scheduling Visualization</div>
+            <button class="btn-close" onclick="closeSimulation()" title="Close Simulation">×</button>
+        </div>
+        
+        <div class="sim-controls">
+            <div class="control-group">
+                <button class="btn btn-secondary btn-small" onclick="generateRandomGraph()">🎲 Random</button>
+                <button class="btn btn-secondary btn-small" onclick="initializeUserGraph()">✏️ Custom</button>
+            </div>
+            <div class="control-group">
+                <button class="btn btn-primary btn-small" id="playBtn" onclick="toggleAnimation()">▶️ Start</button>
+                <button class="btn btn-secondary btn-small" onclick="resetVisualization()">🔄 Reset</button>
+            </div>
+            <div class="speed-control">
+                <span style="font-size: 0.9rem;">Speed:</span>
+                <input type="range" class="speed-slider" id="speedSlider" min="50" max="2000" value="800" onchange="updateSpeed()">
+                <span id="speedLabel" style="font-size: 0.9rem;">0.8s</span>
+            </div>
+        </div>
+        
+        <div class="canvas-container">
+            <canvas id="graphCanvas" width="1200" height="700"></canvas>
+            
+            <div class="legend">
+                <h4 style="margin-bottom: 15px;">📚 Legend</h4>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: white;"></div>
+                    <span>Unscheduled</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff6b6b;"></div>
+                    <span>Time Slot 1</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #4ecdc4;"></div>
+                    <span>Time Slot 2</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #45b7d1;"></div>
+                    <span>Time Slot 3</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #96ceb4;"></div>
+                    <span>Time Slot 4+</span>
+                </div>
+            </div>
+            
+            <div class="algorithm-info">
+                <h4 style="margin-bottom: 10px;">🧠 Algorithm Status</h4>
+                <p id="algorithmStatus" style="margin-bottom: 10px;">Ready to start</p>
+                <p id="currentStep" style="font-size: 0.9rem; opacity: 0.8;">Click 'Start' to begin</p>
+            </div>
+            
+            <div class="stats-panel">
+                <div class="stat-item">
+                    <span class="stat-value" id="totalExams">0</span>
+                    <div class="stat-label">📊 Total Exams</div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="totalConflicts">0</span>
+                    <div class="stat-label">🔗 Conflicts</div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="timeSlotsUsed">0</span>
+                    <div class="stat-label">⏰ Time Slots</div>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="progress">0%</span>
+                    <div class="stat-label">✅ Progress</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Particles Animation
+        function createParticles() {
+            const particlesContainer = document.getElementById('particles');
+            const numParticles = 20;
+            
+            for (let i = 0; i < numParticles; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 15 + 's';
+                particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
+                particlesContainer.appendChild(particle);
+            }
+        }
+        
+        // Initialize particles
+        createParticles();
+        
+        // Smooth scrolling
+        function scrollToFeatures() {
+            document.getElementById('features').scrollIntoView({ 
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }
+        
+        // Simulation Management
+        function startSimulation() {
+            const overlay = document.getElementById('simulationOverlay');
+            const mainContainer = document.getElementById('mainContainer');
+            
+            mainContainer.classList.add('overlay-active');
+            overlay.classList.add('active');
+            
+            // Initialize with random graph
+            setTimeout(() => {
+                generateRandomGraph();
+            }, 800);
+        }
+        
+        function closeSimulation() {
+            const overlay = document.getElementById('simulationOverlay');
+            const mainContainer = document.getElementById('mainContainer');
+            
+            overlay.classList.remove('active');
+            mainContainer.classList.remove('overlay-active');
+            
+            // Reset animation state
+            isAnimating = false;
+            document.getElementById('playBtn').textContent = '▶️ Start';
+        }
+        
+        // Graph Algorithm Implementation
+        const canvas = document.getElementById('graphCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let nodes = [];
+        let edges = [];
+        let isAnimating = false;
+        let animationSpeed = 800;
+        let currentNodeIndex = 0;
+        let colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#dda0dd', '#98d8c8', '#f7dc6f'];
+        let isUserMode = false;
+        let tempEdgeStart = null;
+        
+        class Node {
+            constructor(x, y, id, label) {
+                this.x = x;
+                this.y = y;
+                this.id = id;
+                this.label = label;
+                this.color = 'rgba(255, 255, 255, 0.9)';
+                this.colorIndex = -1;
+                this.radius = 35;
+                this.isHighlighted = false;
+                this.neighbors = new Set();
+            }
+            
+            draw() {
+                // Draw glow effect
+                if (this.isHighlighted) {
+                    ctx.save();
+                    ctx.shadowColor = '#667eea';
+                    ctx.shadowBlur = 20;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius + 5, 0, 2 * Math.PI);
+                    ctx.fillStyle = 'rgba(102, 126, 234, 0.3)';
+                    ctx.fill();
+                    ctx.restore();
+                }
+                
+                // Draw node shadow
+                ctx.save();
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowBlur = 15;
+                ctx.shadowOffsetX = 5;
+                ctx.shadowOffsetY = 5;
+                
+                // Draw node
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
+                
+                // Gradient fill
+                const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
+                gradient.addColorStop(0, this.color);
+                gradient.addColorStop(1, this.color === 'rgba(255, 255, 255, 0.9)' ? 
+                    'rgba(200, 200, 200, 0.9)' : this.color);
+                
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                
+                // Border
+                ctx.strokeStyle = this.isHighlighted ? '#667eea' : 'rgba(0,0,0,0.3)';
+                ctx.lineWidth = this.isHighlighted ? 4 : 2;
+                ctx.stroke();
+                
+                ctx.restore();
+                
+                // Draw label
+                ctx.save();
+                ctx.fillStyle = this.colorIndex === -1 ? '#333' : 'rgba(255,255,255,0.95)';
+                ctx.font = 'bold 12px Inter';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowBlur = 3;
+                ctx.fillText(this.label, this.x, this.y);
+                ctx.restore();
+            }
+            
+            contains(x, y) {
+                const dx = x - this.x;
+                const dy = y - this.y;
+                return dx * dx + dy * dy <= this.radius * this.radius;
+            }
+        }
+        
+        class Edge {
+            constructor(node1, node2) {
+                this.node1 = node1;
+                this.node2 = node2;
+                this.isHighlighted = false;
+            }
+            
+            draw() {
+                ctx.save();
+                
+                // Calculate edge points to not overlap with nodes
+                const dx = this.node2.x - this.node1.x;
+                const dy = this.node2.y - this.node1.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const unitX = dx / distance;
+                const unitY = dy / distance;
+                
+                const startX = this.node1.x + unitX * this.node1.radius;
+                const startY = this.node1.y + unitY * this.node1.radius;
+                const endX = this.node2.x - unitX * this.node2.radius;
+                const endY = this.node2.y - unitY * this.node2.radius;
+                
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(endX, endY);
+                
+                if (this.isHighlighted) {
+                    ctx.strokeStyle = '#667eea';
+                    ctx.lineWidth = 4;
+                    ctx.shadowColor = '#667eea';
+                    ctx.shadowBlur = 10;
+                } else {
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                    ctx.lineWidth = 2;
+                }
+                
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+        
+        function generateRandomGraph() {
+            const examNames = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'Computer Science', 'History', 'Literature', 'Economics', 'Psychology', 'Statistics'];
+            const numNodes = 6 + Math.floor(Math.random() * 4); // 6-9 nodes
+            
+            nodes = [];
+            edges = [];
+            
+            // Create nodes in an aesthetically pleasing layout
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = Math.min(canvas.width, canvas.height) * 0.3;
+            
+            for (let i = 0; i < numNodes; i++) {
+                const angle = (2 * Math.PI * i) / numNodes;
+                const x = centerX + radius * Math.cos(angle);
+                const y = centerY + radius * Math.sin(angle);
+                const label = examNames[i] || `Exam ${i + 1}`;
+                
+                nodes.push(new Node(x, y, i, label));
+            }
+            
+            // Create strategic edges for interesting coloring
+            const density = 0.4 + Math.random() * 0.3; // 40-70% density
+            const maxEdges = (nodes.length * (nodes.length - 1)) / 2;
+            const numEdges = Math.floor(maxEdges * density);
+            
+            const possibleEdges = [];
+            for (let i = 0; i < nodes.length; i++) {
+                for (let j = i + 1; j < nodes.length; j++) {
+                    possibleEdges.push([i, j]);
+                }
+            }
+            
+            // Shuffle and select edges
+            for (let i = possibleEdges.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [possibleEdges[i], possibleEdges[j]] = [possibleEdges[j], possibleEdges[i]];
+            }
+            
+            for (let i = 0; i < Math.min(numEdges, possibleEdges.length); i++) {
+                const [nodeIndex1, nodeIndex2] = possibleEdges[i];
+                const node1 = nodes[nodeIndex1];
+                const node2 = nodes[nodeIndex2];
+                
+                edges.push(new Edge(node1, node2));
+                node1.neighbors.add(node2);
+                node2.neighbors.add(node1);
+            }
+            
+            resetVisualization();
+            updateStats();
+            draw();
+        }
+        
+        function initializeUserGraph() {
+            nodes = [];
+            edges = [];
+            isUserMode = true;
+            tempEdgeStart = null;
+            
+            updateAlgorithmStatus("🖱️ Click to add exams, then click pairs to create conflicts");
+            updateCurrentStep("Build your custom exam conflict graph");
+            updateStats();
+            draw();
+        }
+        
+        function handleCanvasClick(event) {
+            if (!isUserMode) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            
+            // Check if clicked on existing node
+            const clickedNode = nodes.find(node => node.contains(x, y));
+            
+            if (clickedNode) {
+                if (tempEdgeStart === null) {
+                    tempEdgeStart = clickedNode;
+                    clickedNode.isHighlighted = true;
+                    updateAlgorithmStatus("✨ Now click another exam to create a conflict");
+                    updateCurrentStep(`Selected: ${clickedNode.label}`);
+                } else if (tempEdgeStart !== clickedNode) {
+                    // Create edge if it doesn't exist
+                    const edgeExists = edges.some(edge => 
+                        (edge.node1 === tempEdgeStart && edge.node2 === clickedNode) ||
+                        (edge.node1 === clickedNode && edge.node2 === tempEdgeStart)
+                    );
+                    
+                    if (!edgeExists) {
+                        edges.push(new Edge(tempEdgeStart, clickedNode));
+                        tempEdgeStart.neighbors.add(clickedNode);
+                        clickedNode.neighbors.add(tempEdgeStart);
+                        updateAlgorithmStatus("✅ Conflict added!");
+                        updateCurrentStep(`${tempEdgeStart.label} ↔ ${clickedNode.label} conflict created`);
+                    } else {
+                        updateAlgorithmStatus("⚠️ Conflict already exists");
+                        updateCurrentStep("Try selecting different exams");
+                    }
+                    
+                    tempEdgeStart.isHighlighted = false;
+                    tempEdgeStart = null;
+                } else {
+                    // Clicked same node, deselect
+                    tempEdgeStart.isHighlighted = false;
+                    tempEdgeStart = null;
+                    updateAlgorithmStatus("🖱️ Click two different exams to create conflicts");
+                    updateCurrentStep("Selection cleared");
+                }
+            } else {
+                // Create new node
+                const label = `Exam ${String.fromCharCode(65 + nodes.length)}`;
+                nodes.push(new Node(x, y, nodes.length, label));
+                updateAlgorithmStatus("📚 New exam added!");
+                updateCurrentStep(`Created: ${label} at (${Math.round(x)}, ${Math.round(y)})`);
+            }
+            
+            updateStats();
+            draw();
+        }
+        
+        canvas.addEventListener('click', handleCanvasClick);
+        
+        async function startGraphColoring() {
+            if (nodes.length === 0) {
+                updateAlgorithmStatus("⚠️ Please generate a graph first!");
+                updateCurrentStep("Click 'Random' or 'Custom' to create exams");
+                return;
+            }
+            
+            isAnimating = true;
+            isUserMode = false;
+            currentNodeIndex = 0;
+            
+            // Reset all nodes
+            nodes.forEach(node => {
+                node.color = 'rgba(255, 255, 255, 0.9)';
+                node.colorIndex = -1;
+                node.isHighlighted = false;
+            });
+            
+            edges.forEach(edge => edge.isHighlighted = false);
+            
+            updateAlgorithmStatus("🚀 Initializing Graph Coloring Algorithm...");
+            updateCurrentStep("Sorting exams by conflict degree");
+            
+            // Welsh-Powell algorithm implementation
+            const nodesByDegree = [...nodes].sort((a, b) => b.neighbors.size - a.neighbors.size);
+            
+            for (let i = 0; i < nodesByDegree.length; i++) {
+                if (!isAnimating) break;
+                
+                const currentNode = nodesByDegree[i];
+                currentNode.isHighlighted = true;
+                
+                updateAlgorithmStatus(`🎯 Processing: ${currentNode.label}`);
+                updateCurrentStep(`Degree: ${currentNode.neighbors.size} conflicts | Finding optimal time slot...`);
+                
+                // Highlight neighbors and their edges
+                const neighborEdges = edges.filter(edge => 
+                    edge.node1 === currentNode || edge.node2 === currentNode
+                );
+                neighborEdges.forEach(edge => edge.isHighlighted = true);
+                
+                // Highlight neighbor nodes briefly
+                currentNode.neighbors.forEach(neighbor => {
+                    neighbor.isHighlighted = true;
+                });
+                
+                draw();
+                await sleep(animationSpeed * 0.7);
+                
+                // Remove neighbor highlights
+                currentNode.neighbors.forEach(neighbor => {
+                    neighbor.isHighlighted = false;
+                });
+                
+                // Find available color
+                const usedColors = new Set();
+                currentNode.neighbors.forEach(neighbor => {
+                    if (neighbor.colorIndex !== -1) {
+                        usedColors.add(neighbor.colorIndex);
+                    }
+                });
+                
+                let colorIndex = 0;
+                while (usedColors.has(colorIndex)) {
+                    colorIndex++;
+                }
+                
+                // Animate color assignment
+                updateCurrentStep(`✅ Assigning Time Slot ${colorIndex + 1} to ${currentNode.label}`);
+                
+                currentNode.colorIndex = colorIndex;
+                currentNode.color = colors[colorIndex % colors.length];
+                
+                draw();
+                await sleep(animationSpeed);
+                
+                // Remove highlights
+                currentNode.isHighlighted = false;
+                neighborEdges.forEach(edge => edge.isHighlighted = false);
+                
+                updateStats();
+                
+                // Brief pause between nodes
+                await sleep(animationSpeed * 0.3);
+            }
+            
+            if (isAnimating) {
+                updateAlgorithmStatus("🎉 Scheduling Complete! Zero conflicts achieved!");
+                updateCurrentStep(`Optimal solution found using ${Math.max(...nodes.map(n => n.colorIndex)) + 1} time slots`);
+                
+                // Celebration effect
+                for (let i = 0; i < nodes.length; i++) {
+                    setTimeout(() => {
+                        nodes[i].isHighlighted = true;
+                        draw();
+                        setTimeout(() => {
+                            nodes[i].isHighlighted = false;
+                            draw();
+                        }, 300);
+                    }, i * 150);
+                }
+                
+                // Final stats update
+                setTimeout(() => {
+                    updateStats();
+                }, nodes.length * 150 + 500);
+            }
+            
+            isAnimating = false;
+            document.getElementById('playBtn').textContent = '▶️ Start';
+        }
+        
+        function toggleAnimation() {
+            if (isAnimating) {
+                pauseAnimation();
+            } else {
+                startGraphColoring();
+            }
+        }
+        
+        function pauseAnimation() {
+            isAnimating = false;
+            document.getElementById('playBtn').textContent = '▶️ Resume';
+            updateAlgorithmStatus("⏸️ Animation Paused");
+            updateCurrentStep("Click 'Resume' to continue scheduling");
+        }
+        
+        function resetVisualization() {
+            isAnimating = false;
+            isUserMode = false;
+            tempEdgeStart = null;
+            currentNodeIndex = 0;
+            
+            nodes.forEach(node => {
+                node.color = 'rgba(255, 255, 255, 0.9)';
+                node.colorIndex = -1;
+                node.isHighlighted = false;
+            });
+            
+            edges.forEach(edge => edge.isHighlighted = false);
+            
+            document.getElementById('playBtn').textContent = '▶️ Start';
+            updateAlgorithmStatus("🔄 Reset Complete");
+            updateCurrentStep("Ready for new scheduling run");
+            updateStats();
+            draw();
+        }
+        
+        function updateSpeed() {
+            const slider = document.getElementById('speedSlider');
+            animationSpeed = parseInt(slider.value);
+            document.getElementById('speedLabel').textContent = (animationSpeed / 1000).toFixed(1) + 's';
+        }
+        
+        function updateAlgorithmStatus(status) {
+            document.getElementById('algorithmStatus').textContent = status;
+        }
+        
+        function updateCurrentStep(step) {
+            document.getElementById('currentStep').textContent = step;
+        }
+        
+        function updateStats() {
+            document.getElementById('totalExams').textContent = nodes.length;
+            document.getElementById('totalConflicts').textContent = edges.length;
+            
+            const usedColors = new Set(nodes.map(node => node.colorIndex).filter(index => index !== -1));
+            document.getElementById('timeSlotsUsed').textContent = usedColors.size;
+            
+            const scheduledNodes = nodes.filter(node => node.colorIndex !== -1).length;
+            const progress = nodes.length > 0 ? Math.round((scheduledNodes / nodes.length) * 100) : 0;
+            document.getElementById('progress').textContent = progress + '%';
+        }
+        
+        function draw() {
+            // Clear canvas with gradient background
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw background gradient
+            const gradient = ctx.createRadialGradient(
+                canvas.width / 2, canvas.height / 2, 0,
+                canvas.width / 2, canvas.height / 2, Math.max(canvas.width, canvas.height) / 2
+            );
+            gradient.addColorStop(0, 'rgba(26, 26, 46, 0.8)');
+            gradient.addColorStop(1, 'rgba(15, 15, 35, 0.9)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw edges first (behind nodes)
+            edges.forEach(edge => edge.draw());
+            
+            // Draw nodes
+            nodes.forEach(node => node.draw());
+            
+            // Draw temporary edge preview in user mode
+            if (isUserMode && tempEdgeStart) {
+                // This could be enhanced with mouse tracking for live preview
+            }
+        }
+        
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            // Could implement canvas resizing logic here
+        });
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (event) => {
+            if (document.getElementById('simulationOverlay').classList.contains('active')) {
+                switch(event.key) {
+                    case 'Escape':
+                        closeSimulation();
+                        break;
+                    case ' ':
+                        event.preventDefault();
+                        toggleAnimation();
+                        break;
+                    case 'r':
+                    case 'R':
+                        if (event.ctrlKey || event.metaKey) {
+                            event.preventDefault();
+                            resetVisualization();
+                        }
+                        break;
+                }
+            }
+        });
+        
+        // Initialize empty canvas
+        draw();
+    </script>
+</body>
+</html>

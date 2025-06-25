@@ -222,7 +222,7 @@ export default function LoginPage() {
                   required
                   value={formData.USN}
                   onChange={handleInputChange}
-                  className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className="appearance-none block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-700 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   placeholder={formData.role === 'student' ? 'Enter your USN' : 'Enter your UserID'}
                 />
               </div>
