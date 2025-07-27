@@ -2,6 +2,7 @@
   "dependencies": {
     "@21st-extension/react": "^0.5.11",
     "@21st-extension/toolbar-next": "^0.5.11",
+    "@netlify/next": "^1.4.9",
     "lucide-react": "^0.517.0",
     "react-toastify": "^11.0.5"
   }
