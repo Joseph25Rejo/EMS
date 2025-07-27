@@ -1,0 +1,4 @@
+name: @netlify/next
+version: 1.4.9
+plugins:
+  - @netlify/next
