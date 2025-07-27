@@ -288,28 +288,46 @@ export default function TeacherDashboard() {
                 </h1>
                 <p className="text-gray-600 text-lg">Manage your courses and invigilation duties with ease</p>
               </div>
-              <button
-                onClick={() => {
-                  setIsCreatingCourse(true);
-                  setSelectedCourse(null);
-                  setIsEditingCourse(false);
-                  setEditForm({
-                    course_code: '',
-                    course_name: '',
-                    instructor: teacherName,
-                    expected_students: 0
-                  });
-                }}
-                className="group relative px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 font-medium"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl blur opacity-30 group-hover:opacity-50 transition-opacity"></div>
-                <div className="relative flex items-center">
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  Create New Course
-                </div>
-              </button>
+              <div className="flex gap-4">
+                <button
+                  onClick={() => {
+                    setIsCreatingCourse(true);
+                    setSelectedCourse(null);
+                    setIsEditingCourse(false);
+                    setEditForm({
+                      course_code: '',
+                      course_name: '',
+                      instructor: teacherName,
+                      expected_students: 0
+                    });
+                  }}
+                  className="group relative px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 font-medium"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl blur opacity-30 group-hover:opacity-50 transition-opacity"></div>
+                  <div className="relative flex items-center">
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    Create New Course
+                  </div>
+                </button>
+                <button
+                  onClick={() => {
+                    localStorage.removeItem('user');
+                    router.push('/login');
+                  }}
+                  className="group relative px-6 py-3 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-xl hover:from-red-600 hover:to-pink-600 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 font-medium"
+                  title="Logout"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-pink-500 rounded-xl blur opacity-30 group-hover:opacity-50 transition-opacity"></div>
+                  <div className="relative flex items-center">
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7" />
+                    </svg>
+                    Logout
+                  </div>
+                </button>
+              </div>
             </div>
 
             {/* Error Alert */}

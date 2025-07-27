@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Check, X, Clock, Calendar, Users, BookOpen, Download, FileText, FileDown, FileSpreadsheet, Loader2 } from 'lucide-react';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 // API base URL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
@@ -47,6 +49,9 @@ export default function ScheduleGenerator() {
   const [pastSchedule, setPastSchedule] = useState<Schedule | null>(null);
   const [showPastSchedule, setShowPastSchedule] = useState(false);
   const [enrollmentCounts, setEnrollmentCounts] = useState<Record<string, number>>({});
+  const [maxExamsPerDay, setMaxExamsPerDay] = useState<number>(2);
+  const [professorAbsences, setProfessorAbsences] = useState<Record<string, string | string[]>>({});
+  const [instructors, setInstructors] = useState<string[]>([]);
 
   const router = useRouter();
 
@@ -80,7 +85,11 @@ export default function ScheduleGenerator() {
       }
       
       const coursesData = await parseJSONSafely(coursesResponse);
+
       setCourses(coursesData);
+      // Extract unique instructors for absence input
+      const uniqueInstructors = Array.from(new Set((coursesData || []).map((c: Course) => c.instructor).filter(Boolean)));
+      setInstructors(uniqueInstructors as string[]);
 
       // Fetch enrollment counts for each course
       const enrollmentPromises = coursesData.map(async (course: Course) => {
@@ -157,13 +166,27 @@ export default function ScheduleGenerator() {
 
   const generateSchedule = async () => {
     if (selectedCourses.length === 0) {
-      setError('Please select at least one course');
+      toast.error('Please select at least one course');
       return;
     }
-  
+
     setIsGenerating(true);
     setError(null);
-  
+
+    // Prepare professor absences as { instructor: [date, ...] }
+    const absences: Record<string, string[]> = {};
+    for (const [instructor, datesStr] of Object.entries(professorAbsences)) {
+      const dates = (typeof datesStr === 'string'
+        ? datesStr.split(',')
+        : Array.isArray(datesStr)
+        ? datesStr
+        : []
+      )
+        .map((d) => d.trim())
+        .filter((d) => d.length > 0);
+      if (dates.length > 0) absences[instructor] = dates;
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/schedules/generate/selected`, {
         method: 'POST',
@@ -174,22 +197,24 @@ export default function ScheduleGenerator() {
           course_codes: selectedCourses,
           algorithm: algorithm,
           constraints: {
-            start_date: new Date().toISOString().split('T')[0]
+            start_date: new Date().toISOString().split('T')[0],
+            max_exams_per_day: maxExamsPerDay,
+            professor_absences: absences
           }
         })
       });
-  
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to generate schedule');
       }
-  
+
       // Get response text first to handle potential JSON parsing issues
       const responseText = await response.text();
-      
+
       // Clean the response text by replacing NaN with null
       const cleanedResponseText = responseText.replace(/:\s*NaN/g, ': null');
-      
+
       let responseData;
       try {
         responseData = JSON.parse(cleanedResponseText);
@@ -198,7 +223,7 @@ export default function ScheduleGenerator() {
         console.error('Response text:', responseText);
         throw new Error('Invalid response format from server');
       }
-      
+
       // Create schedule object with cleaned data
       const newSchedule: Schedule = {
         _id: responseData.id,
@@ -206,15 +231,15 @@ export default function ScheduleGenerator() {
         schedule: responseData.schedule || [],
         created_at: new Date().toISOString()
       };
-  
+
       setGeneratedSchedule(newSchedule);
-      
+
       // Clear selections after successful generation
       setSelectedCourses([]);
-      
+
       // Show success message
-      alert('Schedule generated successfully!');
-  
+      toast.success('Schedule generated successfully!');
+
     } catch (err) {
       console.error('Error generating schedule:', err);
       setError(err instanceof Error ? err.message : 'Failed to generate schedule');
@@ -225,7 +250,7 @@ export default function ScheduleGenerator() {
 
   const exportScheduleToPDF = async () => {
     if (!generatedSchedule || !generatedSchedule.schedule) {
-      setError('No schedule available to export');
+      toast.error('No schedule available to export');
       return;
     }
 
@@ -321,7 +346,7 @@ export default function ScheduleGenerator() {
       const rowHeight = 12;
       const headers = ['Course Code', 'Course Name', 'Date', 'Session', 'Room', 'Instructor', 'Students'];
       
-      // Draw table headers
+      // Draw table header
       const drawTableHeader = () => {
         doc.setFillColor(240, 240, 240);
         doc.rect(margin, currentY, pageWidth - (margin * 2), rowHeight, 'F');
@@ -431,7 +456,8 @@ export default function ScheduleGenerator() {
       doc.text('RV College of Engineering', pageWidth - margin - 45, currentY + 25);
 
       // Add page numbers
-      const pageCount = doc.internal.getNumberOfPages();
+      // Replace getNumberOfPages() with doc.internal.pages.length
+      const pageCount = doc.internal.pages.length - 1; // -1 because pages array is 0-indexed with an empty first page
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
         doc.setFontSize(10);
@@ -462,14 +488,15 @@ export default function ScheduleGenerator() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-100">
+      <ToastContainer aria-label="Notification" />
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center h-16">
             <Link href="/admin" className="text-blue-600 hover:text-blue-800 mr-4">
               ← Back to Dashboard
             </Link>
-            <h1 className="text-xl font-semibold text-gray-900">Exam Schedule Generator</h1>
+            <h1 className="text-2xl font-semibold text-gray-900">Exam Schedule Generator</h1>
           </div>
         </div>
       </header>
@@ -478,7 +505,7 @@ export default function ScheduleGenerator() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Course Selection */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow-sm border">
+            <div className="bg-white rounded-lg shadow-lg border">
               <div className="p-6 border-b">
                 <div className="flex justify-between items-center">
                   <div>
@@ -503,29 +530,27 @@ export default function ScheduleGenerator() {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
                     {courses.map((course) => (
-                      <div key={course._id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                        <div className="flex items-start space-x-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedCourses.includes(course.course_code)}
-                            onChange={() => handleCourseSelection(course.course_code)}
-                            className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          />
-                          <div className="flex-1">
-                            <h3 className="font-medium text-gray-900">{course.course_name}</h3>
-                            <p className="text-sm text-gray-600">{course.course_code}</p>
-                            <div className="flex items-center space-x-2 mt-1">
-                              <Users className="h-4 w-4 text-gray-400" />
-                              <span className="text-sm text-gray-500">
-                                {enrollmentCounts[course.course_code] || 0} students
-                              </span>
-                              {course.instructor && (
-                                <>
-                                  <span className="text-gray-300">•</span>
-                                  <span className="text-sm text-gray-500">{course.instructor}</span>
-                                </>
-                              )}
-                            </div>
+                      <div key={course._id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedCourses.includes(course.course_code)}
+                          onChange={() => handleCourseSelection(course.course_code)}
+                          className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <div className="ml-3">
+                          <h3 className="font-medium text-gray-900">{course.course_name}</h3>
+                          <p className="text-sm text-gray-600">{course.course_code}</p>
+                          <div className="flex items-center mt-1">
+                            <Users className="h-4 w-4 text-gray-400 mr-1" />
+                            <span className="text-sm text-gray-500">
+                              {enrollmentCounts[course.course_code] || 0} students
+                            </span>
+                            {course.instructor && (
+                              <>
+                                <span className="text-gray-300">•</span>
+                                <span className="text-sm text-gray-500">{course.instructor}</span>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -538,19 +563,19 @@ export default function ScheduleGenerator() {
 
           {/* Configuration Panel */}
           <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-sm border">
+            <div className="bg-white rounded-lg shadow-lg border">
               <div className="p-6 border-b">
                 <h2 className="text-lg font-semibold text-gray-900">Configuration</h2>
               </div>
               <div className="p-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium text-gray-700">
                     Scheduling Algorithm
                   </label>
                   <select
                     value={algorithm}
                     onChange={(e) => setAlgorithm(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 text-gray-900"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 text-gray-900"
                   >
                     <option value="graph_coloring">Graph Coloring</option>
                     <option value="simulated_annealing">Simulated Annealing</option>
@@ -561,6 +586,43 @@ export default function ScheduleGenerator() {
                     {algorithm === 'simulated_annealing' && 'Good for complex optimization'}
                     {algorithm === 'genetic' && 'Best for large datasets with many constraints'}
                   </p>
+                </div>
+
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-medium text-gray-700">
+                      Max Exams Per Day
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={maxExamsPerDay}
+                      onChange={e => setMaxExamsPerDay(Number(e.target.value))}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 text-gray-900"
+                    />
+                  </div>
+
+                  {instructors.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                      <label className="text-sm font-medium text-gray-700">
+                        Professor Absences <span className="text-xs text-gray-400">(comma-separated dates YYYY-MM-DD)</span>
+                      </label>
+                      <div className="space-y-2">
+                        {instructors.map((instructor) => (
+                          <div key={instructor} className="flex items-center gap-2">
+                            <span className="w-32 text-sm text-gray-800">{instructor}</span>
+                            <input
+                              type="text"
+                              placeholder="e.g. 2025-07-10, 2025-07-12"
+                              value={professorAbsences[instructor] || ''}
+                              onChange={e => setProfessorAbsences(prev => ({ ...prev, [instructor]: e.target.value }))}
+                              className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 text-gray-900"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="bg-gray-50 p-4 rounded-md">
@@ -589,7 +651,7 @@ export default function ScheduleGenerator() {
                 {error && (
                   <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
                     <div className="flex items-center">
-                      <X className="h-4 w-4 mr-2" />
+                      <X className="h-5 w-5 mr-2" />
                       {error}
                     </div>
                   </div>
@@ -606,12 +668,12 @@ export default function ScheduleGenerator() {
                 >
                   {isGenerating ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      <Loader2 className="h-5 w-5 animate-spin mr-2" />
                       Generating...
                     </>
                   ) : (
                     <>
-                      <Calendar className="h-4 w-4 mr-2" />
+                      <Calendar className="h-5 w-5 mr-2" />
                       Generate Schedule
                     </>
                   )}
@@ -621,7 +683,7 @@ export default function ScheduleGenerator() {
 
             {/* Export Options */}
             {generatedSchedule && generatedSchedule.schedule.length > 0 && (
-              <div className="bg-white rounded-lg shadow-sm border">
+              <div className="bg-white rounded-lg shadow-lg border">
                 <div className="p-6 border-b">
                   <h2 className="text-lg font-semibold text-gray-900">Export Options</h2>
                 </div>
@@ -632,9 +694,9 @@ export default function ScheduleGenerator() {
                     className="w-full py-2 px-4 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex items-center justify-center disabled:bg-gray-400"
                   >
                     {isGenerating ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      <Loader2 className="h-5 w-5 animate-spin mr-2" />
                     ) : (
-                      <FileText className="h-4 w-4 mr-2" />
+                      <FileText className="h-5 w-5 mr-2" />
                     )}
                     Export as PDF
                   </button>
@@ -648,7 +710,7 @@ export default function ScheduleGenerator() {
 
             {/* Past Schedule Toggle */}
             {pastSchedule && (
-              <div className="bg-white rounded-lg shadow-sm border">
+              <div className="bg-white rounded-lg shadow-lg border">
                 <div className="p-6">
                   <button
                     onClick={() => setShowPastSchedule(!showPastSchedule)}
@@ -664,7 +726,7 @@ export default function ScheduleGenerator() {
 
         {/* Generated Schedule Display */}
         {generatedSchedule && (
-          <div className="mt-6 bg-white rounded-lg shadow-sm border">
+          <div className="mt-6 bg-white rounded-lg shadow-lg border">
             <div className="p-6 border-b">
               <div className="flex justify-between items-center">
                 <div>
@@ -714,7 +776,7 @@ export default function ScheduleGenerator() {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {generatedSchedule.schedule.map((exam, index) => (
-                        <tr key={`${exam.course_code}-${index}`} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <tr key={`${exam.course_code}-${index}`} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900">{exam.course_code}</div>
                             <div className="text-sm text-gray-500">{exam.course_name}</div>
@@ -722,7 +784,7 @@ export default function ScheduleGenerator() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {exam.date || 'TBD'}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                               {exam.session || 'TBD'}
                             </span>
@@ -751,7 +813,7 @@ export default function ScheduleGenerator() {
 
         {/* Past Schedule Display */}
         {showPastSchedule && pastSchedule && (
-          <div className="mt-6 bg-yellow-50 rounded-lg shadow-sm border border-yellow-200">
+          <div className="mt-6 bg-yellow-50 rounded-lg shadow-lg border border-yellow-200">
             <div className="p-6 border-b border-yellow-200">
               <div className="flex justify-between items-center">
                 <div>

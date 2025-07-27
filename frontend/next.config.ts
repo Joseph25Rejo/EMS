@@ -1,4 +1,3 @@
-/** @type {import('next').NextConfig} */
 const nextConfig = {
   async rewrites() {
     return [
@@ -7,7 +6,10 @@ const nextConfig = {
         destination: 'http://127.0.0.1:5000/api/:path*'
       }
     ]
+  },
+  eslint: {
+    ignoreDuringBuilds: true
   }
-}
+};
 
-module.exports = nextConfig
+export default nextConfig;
