@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: ems-rvce-api
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn api:app"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0  # Use your Python version
+      - key: MONGODB_URI
+        sync: false  # Set this in Render dashboard for security

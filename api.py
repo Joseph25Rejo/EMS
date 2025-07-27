@@ -984,16 +984,7 @@ def get_past_schedule():
         'archived_at': past_schedule.get('archived_at')
     })
 
+# At the end of the file, add this:
 if __name__ == '__main__':
-    # Get port from environment variable or default to 5000
-    port = int(os.getenv('PORT', 5000))
-    
-    # Get environment mode
-    env = os.getenv('FLASK_ENV', 'production')
-    
-    # Configure host and debug based on environment
-    if env == 'development':
-        app.run(host='0.0.0.0', port=port, debug=True)
-    else:
-        # Production settings
-        app.run(host='0.0.0.0', port=port, debug=False) 
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)
