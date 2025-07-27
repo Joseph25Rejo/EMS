@@ -1,7 +1,9 @@
-Flask
-flask-cors
-pymongo
-pandas
-python-dotenv
-bson
-gunicorn
+Flask==3.0.3
+flask-cors==4.0.1
+pymongo==4.8.0
+pandas==2.2.3
+python-dotenv==1.0.1
+bson==0.5.10  # Optional, as it's part of pymongo
+networkx==3.3
+google-ortools==9.10.4067  # For constraint solving in scheduling
+gunicorn==23.0.0  # For production server on Render
