@@ -79,7 +79,7 @@ export default function ScheduleGenerator() {
       };
 
       // Fetch courses
-      const coursesResponse = await fetch(`${API_BASE_URL}/api/courses`);
+      const coursesResponse = await fetch(`https://ems-oty3.onrender.comhttps://ems-oty3.onrender.com/api/courses`);
       if (!coursesResponse.ok) {
         throw new Error(`Failed to fetch courses: ${coursesResponse.status}`);
       }
@@ -94,7 +94,7 @@ export default function ScheduleGenerator() {
       // Fetch enrollment counts for each course
       const enrollmentPromises = coursesData.map(async (course: Course) => {
         try {
-          const studentsResponse = await fetch(`${API_BASE_URL}/api/students`);
+          const studentsResponse = await fetch(`https://ems-oty3.onrender.comhttps://ems-oty3.onrender.com/api/students`);
           if (studentsResponse.ok) {
             const studentsData = await parseJSONSafely(studentsResponse);
             const courseEnrollments = studentsData.filter((student: any) => 
@@ -117,7 +117,7 @@ export default function ScheduleGenerator() {
       setEnrollmentCounts(enrollmentMap);
 
       // Fetch current schedule
-      const scheduleResponse = await fetch(`${API_BASE_URL}/api/schedules`);
+      const scheduleResponse = await fetch(`https://ems-oty3.onrender.comhttps://ems-oty3.onrender.com/api/schedules`);
       if (scheduleResponse.ok) {
         const scheduleData = await parseJSONSafely(scheduleResponse);
         if (Array.isArray(scheduleData) && scheduleData.length > 0) {
@@ -128,7 +128,7 @@ export default function ScheduleGenerator() {
 
       // Fetch past schedule
       try {
-        const pastScheduleResponse = await fetch(`${API_BASE_URL}/api/schedules/past`);
+        const pastScheduleResponse = await fetch(`https://ems-oty3.onrender.comhttps://ems-oty3.onrender.com/api/schedules/past`);
         if (pastScheduleResponse.ok) {
           const pastScheduleData = await parseJSONSafely(pastScheduleResponse);
           setPastSchedule(pastScheduleData);
@@ -188,7 +188,7 @@ export default function ScheduleGenerator() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/schedules/generate/selected`, {
+      const response = await fetch(`https://ems-oty3.onrender.comhttps://ems-oty3.onrender.com/api/schedules/generate/selected`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

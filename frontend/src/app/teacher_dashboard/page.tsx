@@ -94,7 +94,7 @@ export default function TeacherDashboard() {
     try {
       console.log('Fetching data for teacher:', name);
       // Fetch teacher's courses using teacher's name
-      const coursesResponse = await fetch(`/api/teachers/${encodeURIComponent(name)}/courses`);
+      const coursesResponse = await fetch(`https://ems-oty3.onrender.com/api/teachers/${encodeURIComponent(name)}/courses`);
       if (!coursesResponse.ok) {
         console.error('Failed to fetch courses:', await coursesResponse.text());
         throw new Error('Failed to fetch courses');
@@ -104,7 +104,7 @@ export default function TeacherDashboard() {
       setMyCourses(coursesData);
 
       // Fetch upcoming invigilations using teacher's name
-      const invigilationsResponse = await fetch(`/api/teachers/${encodeURIComponent(name)}/invigilations/upcoming`);
+      const invigilationsResponse = await fetch(`https://ems-oty3.onrender.com/api/teachers/${encodeURIComponent(name)}/invigilations/upcoming`);
       if (!invigilationsResponse.ok) {
         console.error('Failed to fetch invigilations:', await invigilationsResponse.text());
         throw new Error('Failed to fetch invigilations');
@@ -120,7 +120,7 @@ export default function TeacherDashboard() {
 
   const fetchCourseDetails = async (courseCode: string) => {
     try {
-      const response = await fetch(`/api/teachers/courses/${courseCode}`);
+      const response = await fetch(`https://ems-oty3.onrender.com/api/teachers/courses/${courseCode}`);
       if (!response.ok) throw new Error('Failed to fetch course details');
       const data = await response.json();
       setSelectedCourse(data);
@@ -145,7 +145,7 @@ export default function TeacherDashboard() {
         expected_students: Number(editForm.expected_students)
       };
 
-      const response = await fetch(`/api/teachers/courses/${courseCode}`, {
+      const response = await fetch(`https://ems-oty3.onrender.com/api/teachers/courses/${courseCode}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -170,7 +170,7 @@ export default function TeacherDashboard() {
 
   const handleCreateCourse = async () => {
     try {
-      const response = await fetch('/api/teachers/courses', {
+      const response = await fetch('https://ems-oty3.onrender.com/api/teachers/courses', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

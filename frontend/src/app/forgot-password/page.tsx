@@ -22,7 +22,7 @@ export default function ForgotPasswordPage() {
     setError(null);
     
     try {
-      const response = await fetch('/api/forgot-password', {
+      const response = await fetch('https://ems-oty3.onrender.com/api/forgot-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -30,7 +30,7 @@ export default function ScheduleDetailsPage() {
   useEffect(() => {
     const fetchSchedule = async () => {
       try {
-        const response = await fetch(`/api/schedules/${scheduleId}`);
+        const response = await fetch(`https://ems-oty3.onrender.com/api/schedules/${scheduleId}`);
         if (!response.ok) {
           throw new Error('Failed to fetch schedule');
         }

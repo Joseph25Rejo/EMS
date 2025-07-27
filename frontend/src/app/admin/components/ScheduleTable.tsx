@@ -32,7 +32,7 @@ const ScheduleTable = () => {
   const fetchSchedules = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/schedules');
+      const response = await fetch('https://ems-oty3.onrender.comhttps://ems-oty3.onrender.com/api/schedules');
       const data = await response.json();
       setSchedules(data);
     } catch (error) {

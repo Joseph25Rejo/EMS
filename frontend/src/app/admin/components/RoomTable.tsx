@@ -19,7 +19,7 @@ const RoomTable = () => {
   // Fetch rooms
   const fetchRooms = async () => {
     try {
-      const response = await fetch('/api/rooms');
+      const response = await fetch('https://ems-oty3.onrender.comhttps://ems-oty3.onrender.com/api/rooms');
       const data = await response.json();
       setRooms(data);
     } catch (error) {
@@ -51,7 +51,7 @@ const RoomTable = () => {
     }
 
     try {
-      const response = await fetch('/api/rooms', {
+      const response = await fetch('https://ems-oty3.onrender.comhttps://ems-oty3.onrender.com/api/rooms', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -86,7 +86,7 @@ const RoomTable = () => {
     }
 
     try {
-      const response = await fetch(`/api/rooms/${formData.room_id}`, {
+      const response = await fetch(`https://ems-oty3.onrender.comhttps://ems-oty3.onrender.com/api/rooms/${formData.room_id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -118,7 +118,7 @@ const RoomTable = () => {
     }
 
     try {
-      const response = await fetch(`/api/rooms/${roomId}`, {
+      const response = await fetch(`https://ems-oty3.onrender.comhttps://ems-oty3.onrender.com/api/rooms/${roomId}`, {
         method: 'DELETE',
       });
 

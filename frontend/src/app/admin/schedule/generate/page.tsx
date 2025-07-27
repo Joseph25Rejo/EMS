@@ -80,7 +80,7 @@ export default function GenerateSchedulePage() {
       };
 
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/api/schedules/generate`, {
+      const response = await fetch(`${API_URL}https://ems-oty3.onrender.com/api/schedules/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

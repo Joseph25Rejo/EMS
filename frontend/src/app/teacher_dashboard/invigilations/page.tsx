@@ -62,7 +62,7 @@ export default function TeacherInvigilations() {
       console.log('Fetching invigilations for teacher:', name);
       
       // Fetch upcoming invigilations from final_schedule
-      const upcomingResponse = await fetch(`/api/teachers/${encodeURIComponent(name)}/invigilations/upcoming`);
+      const upcomingResponse = await fetch(`https://ems-oty3.onrender.com/api/teachers/${encodeURIComponent(name)}/invigilations/upcoming`);
       if (!upcomingResponse.ok) {
         console.error('Failed to fetch upcoming invigilations:', await upcomingResponse.text());
         throw new Error('Failed to fetch upcoming invigilations');
@@ -80,7 +80,7 @@ export default function TeacherInvigilations() {
       setUpcomingInvigilations(upcomingData);
 
       // Fetch past invigilations from past_schedule
-      const pastResponse = await fetch(`/api/teachers/${encodeURIComponent(name)}/invigilations/history`);
+      const pastResponse = await fetch(`https://ems-oty3.onrender.com/api/teachers/${encodeURIComponent(name)}/invigilations/history`);
       if (!pastResponse.ok) {
         console.error('Failed to fetch past invigilations:', await pastResponse.text());
         throw new Error('Failed to fetch past invigilations');

@@ -23,7 +23,7 @@ export default function ConflictsPage() {
   useEffect(() => {
     const fetchConflicts = async () => {
       try {
-        const response = await fetch('/api/schedules/conflicts');
+        const response = await fetch('https://ems-oty3.onrender.comhttps://ems-oty3.onrender.com/api/schedules/conflicts');
         if (!response.ok) {
           throw new Error('Failed to fetch conflicts');
         }

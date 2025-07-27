@@ -151,14 +151,14 @@ export default function DashboardPage() {
   const fetchInitialData = async (usn: string) => {
     try {
       // Fetch courses
-      const coursesResponse = await fetch(`/api/students/${usn}/courses`);
+      const coursesResponse = await fetch(`https://ems-oty3.onrender.com/api/students/${usn}/courses`);
       if (coursesResponse.ok) {
         const coursesData = await coursesResponse.json();
         setCourses(coursesData);
       }
 
       // Fetch hall ticket (which includes exam schedule)
-      const hallTicketResponse = await fetch(`/api/students/${usn}/hallticket`);
+      const hallTicketResponse = await fetch(`https://ems-oty3.onrender.com/api/students/${usn}/hallticket`);
       if (hallTicketResponse.ok) {
         const scheduleData = await hallTicketResponse.json();
         setExamSchedule(scheduleData);
@@ -209,16 +209,23 @@ export default function DashboardPage() {
       }
 
       // Add watermark if logo is loaded
+      // Add watermark if logo is loaded
       if (logoBase64) {
-        const opacity = 0.05; // Reduced opacity to match preview
-        pdf.saveGraphicsState();
-        pdf.setGState(new (pdf as any).GState({ opacity }));
+        const opacity = 0.05;
+        
+        // Type assertion to access graphics state methods
+        const pdfWithGraphics = pdf as any;
+        
+        pdfWithGraphics.saveGraphicsState();
+        pdfWithGraphics.setGState(new pdfWithGraphics.GState({ opacity }));
+        
         try {
           pdf.addImage(logoBase64, 'PNG', 70, 40, 160, 160);
         } catch (error) {
           console.error('Error adding watermark:', error);
         }
-        pdf.restoreGraphicsState();
+        
+        pdfWithGraphics.restoreGraphicsState();
       }
 
       // Add "RVCE" watermark text

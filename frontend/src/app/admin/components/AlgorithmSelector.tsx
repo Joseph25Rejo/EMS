@@ -45,7 +45,7 @@ const AlgorithmSelector = ({ onScheduleGenerated, className = '' }: AlgorithmSel
     setIsLoading(true);
     
     try {
-      const response = await fetch('/api/schedules/generate', {
+      const response = await fetch('https://ems-oty3.onrender.comhttps://ems-oty3.onrender.com/api/schedules/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

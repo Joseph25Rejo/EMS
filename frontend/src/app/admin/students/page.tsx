@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Users, GraduationCap, BookOpen, Clock, Loader2, UserPlus } from 'lucide-react';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'http://localhost:5000https://ems-oty3.onrender.com/api';
 import { toast } from 'react-hot-toast';
 import StudentTable from '../components/StudentTable';
 import { StatCard } from '../components/StatsCard';

@@ -51,8 +51,8 @@ export default function StudentEnrollment() {
       setError(null);
       
       const [studentsRes, coursesRes] = await Promise.all([
-        fetch(`${API_URL}/api/students`),
-        fetch(`${API_URL}/api/courses`)
+        fetch(`${API_URL}https://ems-oty3.onrender.com/api/students`),
+        fetch(`${API_URL}https://ems-oty3.onrender.com/api/courses`)
       ]);
 
       if (!studentsRes.ok || !coursesRes.ok) {
@@ -82,7 +82,7 @@ export default function StudentEnrollment() {
       setError(null);
       setSuccess(null);
 
-      const response = await fetch(`${API_URL}/api/students/enroll`, {
+      const response = await fetch(`${API_URL}https://ems-oty3.onrender.com/api/students/enroll`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

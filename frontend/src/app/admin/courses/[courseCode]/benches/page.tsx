@@ -45,13 +45,13 @@ export default function CourseBenchesPage() {
       try {
         setIsLoading(true);
         // Fetch course details
-        const courseRes = await fetch(`/api/courses/${courseCode}`);
+        const courseRes = await fetch(`https://ems-oty3.onrender.comhttps://ems-oty3.onrender.com/api/courses/${courseCode}`);
         if (!courseRes.ok) throw new Error('Failed to fetch course');
         const courseData = await courseRes.json();
         setCourse(courseData);
 
         // Fetch benches for this course
-        const benchesRes = await fetch(`/api/courses/${courseCode}/benches`);
+        const benchesRes = await fetch(`https://ems-oty3.onrender.comhttps://ems-oty3.onrender.com/api/courses/${courseCode}/benches`);
         if (!benchesRes.ok) throw new Error('Failed to fetch benches');
         const benchesData = await benchesRes.json();
         setBenches(benchesData);
@@ -86,8 +86,8 @@ export default function CourseBenchesPage() {
     setIsSaving(true);
     try {
       const url = selectedBench 
-        ? `/api/courses/${courseCode}/benches/${selectedBench.id}`
-        : `/api/courses/${courseCode}/benches`;
+        ? `https://ems-oty3.onrender.comhttps://ems-oty3.onrender.com/api/courses/${courseCode}/benches/${selectedBench.id}`
+        : `https://ems-oty3.onrender.comhttps://ems-oty3.onrender.com/api/courses/${courseCode}/benches`;
       
       const method = selectedBench ? 'PUT' : 'POST';
       
@@ -123,7 +123,8 @@ export default function CourseBenchesPage() {
     }
 
     try {
-      const response = await fetch(`/api/courses/${courseCode}/benches/${benchId}`, {
+      const response = await fetch(`https://ems-oty3.onrender.comhttps://ems-oty3.onrender.com/api/courses/${courseCode}/benches/${benchId}`, {
+
         method: 'DELETE'
       });
 

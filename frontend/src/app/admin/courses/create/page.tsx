@@ -90,7 +90,7 @@ export default function CreateCoursePage() {
         headers.append('Authorization', `Bearer ${token}`);
       }
 
-      const response = await fetch('/api/courses', {
+      const response = await fetch('https://ems-oty3.onrender.comhttps://ems-oty3.onrender.com/api/courses', {
         method: 'POST',
         headers,
         body: JSON.stringify(formData),

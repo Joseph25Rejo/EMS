@@ -60,12 +60,12 @@ export default function TeacherSchedules() {
     setLoading(true);
     try {
       // Fetch courses where teacher is instructor
-      const coursesResponse = await fetch(`/api/teachers/${encodeURIComponent(name)}/courses`);
+      const coursesResponse = await fetch(`https://ems-oty3.onrender.com/api/teachers/${encodeURIComponent(name)}/courses`);
       if (!coursesResponse.ok) throw new Error('Failed to fetch courses');
       const coursesData = await coursesResponse.json();
       
       // Fetch invigilation duties
-      const invigilationsResponse = await fetch(`/api/teachers/${encodeURIComponent(name)}/invigilations/upcoming`);
+      const invigilationsResponse = await fetch(`https://ems-oty3.onrender.com/api/teachers/${encodeURIComponent(name)}/invigilations/upcoming`);
       if (!invigilationsResponse.ok) throw new Error('Failed to fetch invigilations');
       const invigilationsData = await invigilationsResponse.json();
 

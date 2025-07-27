@@ -28,7 +28,7 @@ export default function ConflictsPage() {
       setLoading(true);
       setError(null);
       
-      const response = await fetch('http://127.0.0.1:5000/api/schedules/conflicts', {
+      const response = await fetch('http://127.0.0.1:5000https://ems-oty3.onrender.com/api/schedules/conflicts', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

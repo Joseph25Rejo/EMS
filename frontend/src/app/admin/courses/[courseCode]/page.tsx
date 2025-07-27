@@ -26,7 +26,7 @@ export default function CourseDetailsPage() {
   useEffect(() => {
     const fetchCourse = async () => {
       try {
-        const response = await fetch(`/api/courses/${courseCode}`);
+        const response = await fetch(`https://ems-oty3.onrender.comhttps://ems-oty3.onrender.com/api/courses/${courseCode}`);
         if (!response.ok) {
           throw new Error('Failed to fetch course');
         }

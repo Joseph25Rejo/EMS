@@ -18,7 +18,7 @@ const CourseTable = () => {
   // Fetch courses
   const fetchCourses = async () => {
     try {
-      const response = await fetch('/api/courses');
+      const response = await fetch('https://ems-oty3.onrender.comhttps://ems-oty3.onrender.com/api/courses');
       const data = await response.json();
       setCourses(data);
     } catch (error) {
@@ -50,7 +50,7 @@ const CourseTable = () => {
     }
 
     try {
-      const response = await fetch('/api/courses', {
+      const response = await fetch('https://ems-oty3.onrender.comhttps://ems-oty3.onrender.com/api/courses', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -83,7 +83,7 @@ const CourseTable = () => {
     }
 
     try {
-      const response = await fetch(`/api/courses/${formData.course_code}`, {
+      const response = await fetch(`https://ems-oty3.onrender.comhttps://ems-oty3.onrender.com/api/courses/${formData.course_code}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -114,7 +114,7 @@ const CourseTable = () => {
     }
 
     try {
-      const response = await fetch(`/api/courses/${courseCode}`, {
+      const response = await fetch(`https://ems-oty3.onrender.comhttps://ems-oty3.onrender.com/api/courses/${courseCode}`, {
         method: 'DELETE',
       });
 
