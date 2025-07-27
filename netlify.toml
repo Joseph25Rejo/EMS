@@ -1,7 +1,10 @@
 [build]
-base = "frontend"
-command = "npm run build && npm run export"
-publish = "frontend/out"
+  base = "frontend"
+  publish = "frontend/.next"
+  command = "npm run build"
 
-[dev]
-  framework = "next"
+[functions]
+  directory = "netlify/functions"
+
+[[plugins]]
+  package = "@netlify/next"
