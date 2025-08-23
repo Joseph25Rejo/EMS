@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="24px" height="24px" viewBox="0 0 24 24" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Profile</title>
+    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <path d="M12,12 C14.7614237,12 17,9.76142375 17,7 C17,4.23857625 14.7614237,2 12,2 C9.23857625,2 7,4.23857625 7,7 C7,9.76142375 9.23857625,12 12,12 Z M12,14.5 C7.85786438,14.5 2,16.5 2,21 C2,21.5522847 2.44771525,22 3,22 L21,22 C21.5522847,22 22,21.5522847 22,21 C22,16.5 16.1421356,14.5 12,14.5 Z" fill="#000000" fill-rule="nonzero"></path>
+    </g>
+</svg>
